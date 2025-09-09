@@ -1,0 +1,128 @@
+[
+  {
+    "id": "txn_01001",
+    "customerId": "cust_017",
+    "cardId": "card_093",
+    "mcc": "6011",
+    "merchant": "ATM Withdrawal",
+    "amount": -10000,
+    "currency": "INR",
+    "ts": "2025-01-13T13:02:11Z",
+    "deviceId": "dev_45",
+    "geo": {
+      "lat": 28.61,
+      "lon": 77.21,
+      "country": "IN",
+      "city": "New Delhi"
+    },
+    "status": "captured"
+  },
+  {
+    "id": "txn_01002",
+    "customerId": "cust_017",
+    "cardId": "card_093",
+    "mcc": "5411",
+    "merchant": "ABC Mart",
+    "amount": -499900,
+    "currency": "INR",
+    "ts": "2025-01-12T15:30:00Z",
+    "deviceId": "dev_45",
+    "geo": {
+      "lat": 28.61,
+      "lon": 77.21,
+      "country": "IN",
+      "city": "New Delhi"
+    },
+    "status": "captured"
+  },
+  {
+    "id": "txn_01003",
+    "customerId": "cust_001",
+    "cardId": "card_001",
+    "mcc": "4121",
+    "merchant": "QuickCab",
+    "amount": -25000,
+    "currency": "INR",
+    "ts": "2025-01-12T10:15:00Z",
+    "deviceId": "dev_12",
+    "geo": {
+      "lat": 19.07,
+      "lon": 72.87,
+      "country": "IN",
+      "city": "Mumbai"
+    },
+    "status": "pending"
+  },
+  {
+    "id": "txn_01004",
+    "customerId": "cust_001",
+    "cardId": "card_001",
+    "mcc": "4121",
+    "merchant": "QuickCab",
+    "amount": -25000,
+    "currency": "INR",
+    "ts": "2025-01-12T10:15:00Z",
+    "deviceId": "dev_12",
+    "geo": {
+      "lat": 19.07,
+      "lon": 72.87,
+      "country": "IN",
+      "city": "Mumbai"
+    },
+    "status": "captured"
+  },
+  {
+    "id": "txn_01005",
+    "customerId": "cust_025",
+    "cardId": "card_125",
+    "mcc": "5812",
+    "merchant": "Restaurant XYZ",
+    "amount": -150000,
+    "currency": "INR",
+    "ts": "2025-01-11T19:45:00Z",
+    "deviceId": "dev_78",
+    "geo": {
+      "lat": 12.97,
+      "lon": 77.59,
+      "country": "IN",
+      "city": "Bangalore"
+    },
+    "status": "captured"
+  },
+  {
+    "id": "txn_01006",
+    "customerId": "cust_041",
+    "cardId": "card_189",
+    "mcc": "7995",
+    "merchant": "Gaming Store",
+    "amount": -75000,
+    "currency": "INR",
+    "ts": "2025-01-10T20:30:00Z",
+    "deviceId": "dev_23",
+    "geo": {
+      "lat": 18.52,
+      "lon": 73.85,
+      "country": "IN",
+      "city": "Pune"
+    },
+    "status": "captured"
+  },
+  {
+    "id": "txn_01007",
+    "customerId": "cust_033",
+    "cardId": "card_156",
+    "mcc": "5311",
+    "merchant": "Department Store",
+    "amount": -200000,
+    "currency": "INR",
+    "ts": "2025-01-09T14:20:00Z",
+    "deviceId": "dev_67",
+    "geo": {
+      "lat": 22.57,
+      "lon": 88.36,
+      "country": "IN",
+      "city": "Kolkata"
+    },
+    "status": "captured"
+  }
+]

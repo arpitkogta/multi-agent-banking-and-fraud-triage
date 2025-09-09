@@ -1,0 +1,52 @@
+[
+  {
+    "id": "dev_12",
+    "customerId": "cust_001",
+    "deviceType": "mobile",
+    "os": "iOS 17.2",
+    "browser": "Safari",
+    "fingerprint": "abc123def456",
+    "lastSeen": "2025-01-12T10:15:00Z",
+    "isTrusted": true
+  },
+  {
+    "id": "dev_23",
+    "customerId": "cust_041",
+    "deviceType": "desktop",
+    "os": "Windows 11",
+    "browser": "Chrome",
+    "fingerprint": "xyz789uvw012",
+    "lastSeen": "2025-01-10T20:30:00Z",
+    "isTrusted": true
+  },
+  {
+    "id": "dev_45",
+    "customerId": "cust_017",
+    "deviceType": "mobile",
+    "os": "Android 14",
+    "browser": "Chrome Mobile",
+    "fingerprint": "mno345pqr678",
+    "lastSeen": "2025-01-13T13:02:11Z",
+    "isTrusted": true
+  },
+  {
+    "id": "dev_67",
+    "customerId": "cust_033",
+    "deviceType": "tablet",
+    "os": "iPadOS 17.1",
+    "browser": "Safari",
+    "fingerprint": "stu901vwx234",
+    "lastSeen": "2025-01-09T14:20:00Z",
+    "isTrusted": true
+  },
+  {
+    "id": "dev_78",
+    "customerId": "cust_025",
+    "deviceType": "mobile",
+    "os": "iOS 16.7",
+    "browser": "Safari",
+    "fingerprint": "yza567bcd890",
+    "lastSeen": "2025-01-11T19:45:00Z",
+    "isTrusted": false
+  }
+]

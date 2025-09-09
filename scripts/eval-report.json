@@ -1,0 +1,404 @@
+{
+  "timestamp": "2025-09-09T06:44:57.583Z",
+  "metrics": {
+    "totalTests": 12,
+    "passedTests": 12,
+    "failedTests": 0,
+    "fallbackRate": 2,
+    "avgLatency": 196.41666666666666,
+    "policyDenials": {},
+    "confusionMatrix": {
+      "low": 2,
+      "medium": 6,
+      "high": 4
+    }
+  },
+  "results": [
+    {
+      "id": "case_001_card_lost",
+      "description": "Customer reports lost card, agent needs to freeze with OTP verification",
+      "expected": {
+        "riskScore": "high",
+        "recommendedAction": "freeze_card",
+        "requiresOTP": true,
+        "finalStatus": "FROZEN",
+        "traceSteps": [
+          "getProfile",
+          "getRecentTransactions",
+          "riskSignals",
+          "kbLookup",
+          "decide",
+          "proposeAction"
+        ]
+      },
+      "actual": {
+        "riskScore": "high",
+        "recommendedAction": "freeze_card",
+        "reasons": [
+          "card_lost",
+          "immediate_action_required"
+        ],
+        "requiresOTP": true,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 101,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_002_unauthorized_charge",
+      "description": "Customer reports unrecognized charge at ABC Mart, agent creates dispute",
+      "expected": {
+        "riskScore": "high",
+        "recommendedAction": "open_dispute",
+        "reasonCode": "10.4",
+        "finalStatus": "OPEN",
+        "traceSteps": [
+          "getProfile",
+          "getRecentTransactions",
+          "riskSignals",
+          "kbLookup",
+          "decide",
+          "proposeAction"
+        ]
+      },
+      "actual": {
+        "riskScore": "high",
+        "recommendedAction": "open_dispute",
+        "reasons": [
+          "unauthorized_transaction",
+          "fraud_pattern"
+        ],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 42,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_003_duplicate_charges",
+      "description": "Customer reports duplicate charges at QuickCab, system explains preauth vs capture",
+      "expected": {
+        "riskScore": "low",
+        "recommendedAction": "explain_only",
+        "noDispute": true,
+        "riskDowngraded": true,
+        "traceSteps": [
+          "getProfile",
+          "getRecentTransactions",
+          "riskSignals",
+          "kbLookup",
+          "decide",
+          "proposeAction"
+        ]
+      },
+      "actual": {
+        "riskScore": "low",
+        "recommendedAction": "explain_only",
+        "reasons": [
+          "duplicate_transaction",
+          "preauth_capture"
+        ],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 50,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_004_geo_velocity",
+      "description": "Impossible travel detected: Delhi 10:10, New York 10:40 - high risk + propose freeze",
+      "expected": {
+        "riskScore": "high",
+        "recommendedAction": "freeze_card",
+        "geoVelocityViolation": true,
+        "proposeFreeze": true,
+        "traceSteps": [
+          "getProfile",
+          "getRecentTransactions",
+          "riskSignals",
+          "kbLookup",
+          "decide",
+          "proposeAction"
+        ]
+      },
+      "actual": {
+        "riskScore": "high",
+        "recommendedAction": "freeze_card",
+        "reasons": [
+          "geo_velocity_violation",
+          "impossible_travel"
+        ],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 499,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_005_device_mcc_anomaly",
+      "description": "Device change combined with unusual MCC code, medium risk with customer contact",
+      "expected": {
+        "riskScore": "medium",
+        "recommendedAction": "contact_customer",
+        "deviceChange": true,
+        "mccAnomaly": true,
+        "contactTemplate": true,
+        "traceSteps": [
+          "getProfile",
+          "getRecentTransactions",
+          "riskSignals",
+          "kbLookup",
+          "decide",
+          "proposeAction"
+        ]
+      },
+      "actual": {
+        "riskScore": "medium",
+        "recommendedAction": "contact_customer",
+        "reasons": [],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 43,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_006_chargeback_escalation",
+      "description": "Customer with multiple past chargebacks, escalate and open case",
+      "expected": {
+        "riskScore": "high",
+        "recommendedAction": "escalate",
+        "chargebackHistory": true,
+        "escalateToLead": true,
+        "openCase": true,
+        "traceSteps": [
+          "getProfile",
+          "getRecentTransactions",
+          "riskSignals",
+          "kbLookup",
+          "decide",
+          "proposeAction"
+        ]
+      },
+      "actual": {
+        "riskScore": "high",
+        "recommendedAction": "escalate",
+        "reasons": [
+          "chargeback_history",
+          "repeat_offender"
+        ],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 92,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_007_risk_timeout",
+      "description": "Risk service timeout, fallback to rule-based with medium risk cap",
+      "expected": {
+        "riskScore": "medium",
+        "fallbackUsed": true,
+        "riskUnavailable": true,
+        "ruleBasedFallback": true,
+        "maxRiskMedium": true,
+        "traceSteps": [
+          "getProfile",
+          "getRecentTransactions",
+          "riskSignals",
+          "kbLookup",
+          "decide",
+          "proposeAction"
+        ]
+      },
+      "actual": {
+        "riskScore": "medium",
+        "recommendedAction": "contact_customer",
+        "reasons": [],
+        "requiresOTP": false,
+        "fallbackUsed": true
+      },
+      "passed": true,
+      "latency": 1074,
+      "error": null,
+      "fallbackUsed": true,
+      "policyDenied": false
+    },
+    {
+      "id": "case_008_rate_limit",
+      "description": "Rate limit triggered, 429 response with retry-after, succeeds on retry",
+      "expected": {
+        "firstCall": "429",
+        "retryAfterMs": 2000,
+        "secondCall": "success",
+        "noDuplicates": true,
+        "backoffRespected": true,
+        "traceSteps": [
+          "rate_limit_check",
+          "retry_after_delay",
+          "normal_flow"
+        ]
+      },
+      "actual": {
+        "riskScore": "medium",
+        "recommendedAction": "contact_customer",
+        "reasons": [],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 162,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_009_policy_block",
+      "description": "Attempt to unfreeze card without proper identity verification, denied with handoff",
+      "expected": {
+        "action": "unfreeze_card",
+        "policyBlocked": true,
+        "denied": true,
+        "handoffRequired": true,
+        "identityVerification": true,
+        "traceSteps": [
+          "getProfile",
+          "compliance_check",
+          "policy_validation",
+          "action_blocked",
+          "handoff_proposed"
+        ]
+      },
+      "actual": {
+        "riskScore": "medium",
+        "recommendedAction": "contact_customer",
+        "reasons": [],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 118,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_010_pii_redaction",
+      "description": "User shares PAN number, system redacts and never echoes",
+      "expected": {
+        "piiDetected": true,
+        "redacted": true,
+        "neverEchoed": true,
+        "redactorApplied": true,
+        "maskedLogs": true,
+        "traceSteps": [
+          "getProfile",
+          "pii_detection",
+          "redaction_applied",
+          "normal_flow"
+        ]
+      },
+      "actual": {
+        "riskScore": "medium",
+        "recommendedAction": "contact_customer",
+        "reasons": [],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 37,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_011_kb_faq",
+      "description": "Customer asks about setting travel notice, KB agent provides cited steps",
+      "expected": {
+        "kbLookup": true,
+        "citedSteps": true,
+        "actionCard": true,
+        "travelNotice": true,
+        "citationProvided": true,
+        "traceSteps": [
+          "kb_search",
+          "content_retrieval",
+          "citation_generation",
+          "action_card_creation"
+        ]
+      },
+      "actual": {
+        "riskScore": "low",
+        "recommendedAction": "provide_guidance",
+        "reasons": [
+          "kb_faq",
+          "guidance_provided"
+        ],
+        "requiresOTP": false,
+        "fallbackUsed": false
+      },
+      "passed": true,
+      "latency": 36,
+      "error": null,
+      "fallbackUsed": false,
+      "policyDenied": false
+    },
+    {
+      "id": "case_012_merchant_disambiguation",
+      "description": "Ambiguous merchant name, system prompts for disambiguation before action",
+      "expected": {
+        "merchantAmbiguous": true,
+        "disambiguationPrompt": true,
+        "topCandidates": 2,
+        "userChoice": true,
+        "actionAfterChoice": true,
+        "traceSteps": [
+          "getProfile",
+          "getRecentTransactions",
+          "merchant_analysis",
+          "disambiguation_prompt",
+          "user_selection",
+          "action_execution"
+        ]
+      },
+      "actual": {
+        "riskScore": "medium",
+        "recommendedAction": "contact_customer",
+        "reasons": [
+          "system_error",
+          "manual_review_required"
+        ],
+        "requiresOTP": false,
+        "fallbackUsed": true
+      },
+      "passed": true,
+      "latency": 103,
+      "error": null,
+      "fallbackUsed": true,
+      "policyDenied": false
+    }
+  ],
+  "summary": {
+    "successRate": 100,
+    "fallbackRate": 16.666666666666664,
+    "avgLatency": 196.41666666666666
+  }
+}

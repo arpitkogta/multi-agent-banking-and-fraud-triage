@@ -1,0 +1,31 @@
+{
+  "id": "case_011",
+  "name": "KB FAQ - Travel Notice",
+  "description": "Customer asks about setting travel notice, KB agent provides cited steps",
+  "input": {
+    "customerId": "cust_033",
+    "suspectTxnId": null,
+    "alertType": "kb_faq",
+    "userMessage": "How do I set a travel notice for my upcoming trip?"
+  },
+  "expected": {
+    "kbLookup": true,
+    "citedSteps": true,
+    "actionCard": true,
+    "travelNotice": true,
+    "citationProvided": true,
+    "traceSteps": [
+      "kb_search",
+      "content_retrieval",
+      "citation_generation",
+      "action_card_creation"
+    ]
+  },
+  "assertions": [
+    "KB search performed",
+    "cited steps provided",
+    "action card to set travel notice",
+    "proper citations included",
+    "helpful guidance given"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "case_002",
+  "name": "Unauthorized Charge - Dispute Creation",
+  "description": "Customer reports unrecognized charge at ABC Mart, agent creates dispute",
+  "input": {
+    "customerId": "cust_017",
+    "suspectTxnId": "txn_01002",
+    "alertType": "unauthorized_charge",
+    "userMessage": "I don't recognize this charge of ₹4,999 at ABC Mart yesterday"
+  },
+  "expected": {
+    "riskScore": "high",
+    "recommendedAction": "open_dispute",
+    "reasonCode": "10.4",
+    "finalStatus": "OPEN",
+    "traceSteps": [
+      "getProfile",
+      "getRecentTransactions",
+      "riskSignals", 
+      "kbLookup",
+      "decide",
+      "proposeAction"
+    ]
+  },
+  "assertions": [
+    "one matching transaction found",
+    "agent proposes reason 10.4",
+    "case opened after confirmation",
+    "timeline updated",
+    "citation to 'How disputes work (#kb_disputes)'"
+  ]
+}

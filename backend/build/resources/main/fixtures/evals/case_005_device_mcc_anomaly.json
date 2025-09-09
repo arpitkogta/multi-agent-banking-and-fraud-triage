@@ -1,0 +1,33 @@
+{
+  "id": "case_005",
+  "name": "Device Change + MCC Anomaly - Medium Risk",
+  "description": "Device change combined with unusual MCC code, medium risk with customer contact",
+  "input": {
+    "customerId": "cust_041",
+    "suspectTxnId": "txn_01006",
+    "alertType": "device_mcc_anomaly",
+    "userMessage": "I got an alert about unusual activity on my card"
+  },
+  "expected": {
+    "riskScore": "medium",
+    "recommendedAction": "contact_customer",
+    "deviceChange": true,
+    "mccAnomaly": true,
+    "contactTemplate": true,
+    "traceSteps": [
+      "getProfile",
+      "getRecentTransactions",
+      "riskSignals",
+      "kbLookup",
+      "decide", 
+      "proposeAction"
+    ]
+  },
+  "assertions": [
+    "device change detected",
+    "MCC anomaly flagged",
+    "medium risk score assigned",
+    "customer contact template provided",
+    "no immediate action required"
+  ]
+}

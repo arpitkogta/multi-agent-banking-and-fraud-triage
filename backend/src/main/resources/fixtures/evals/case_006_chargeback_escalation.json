@@ -1,0 +1,33 @@
+{
+  "id": "case_006",
+  "name": "Heavy Chargeback History - Escalation",
+  "description": "Customer with multiple past chargebacks, escalate and open case",
+  "input": {
+    "customerId": "cust_025",
+    "suspectTxnId": "txn_01005",
+    "alertType": "chargeback_history",
+    "userMessage": "I need help with another transaction issue"
+  },
+  "expected": {
+    "riskScore": "high",
+    "recommendedAction": "escalate",
+    "chargebackHistory": true,
+    "escalateToLead": true,
+    "openCase": true,
+    "traceSteps": [
+      "getProfile",
+      "getRecentTransactions",
+      "riskSignals",
+      "kbLookup",
+      "decide",
+      "proposeAction"
+    ]
+  },
+  "assertions": [
+    "chargeback history detected",
+    "escalation to team lead",
+    "case opened for review",
+    "high risk due to history",
+    "special handling required"
+  ]
+}

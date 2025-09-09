@@ -1,0 +1,33 @@
+{
+  "id": "case_012",
+  "name": "Merchant Disambiguation",
+  "description": "Ambiguous merchant name, system prompts for disambiguation before action",
+  "input": {
+    "customerId": "cust_041",
+    "suspectTxnId": "txn_01006",
+    "alertType": "merchant_disambiguation",
+    "userMessage": "I don't recognize this charge at Gaming Store"
+  },
+  "expected": {
+    "merchantAmbiguous": true,
+    "disambiguationPrompt": true,
+    "topCandidates": 2,
+    "userChoice": true,
+    "actionAfterChoice": true,
+    "traceSteps": [
+      "getProfile",
+      "getRecentTransactions",
+      "merchant_analysis",
+      "disambiguation_prompt",
+      "user_selection",
+      "action_execution"
+    ]
+  },
+  "assertions": [
+    "ambiguous merchant detected",
+    "disambiguation prompt shown",
+    "top 2 candidates presented",
+    "user choice required",
+    "action proceeds after selection"
+  ]
+}

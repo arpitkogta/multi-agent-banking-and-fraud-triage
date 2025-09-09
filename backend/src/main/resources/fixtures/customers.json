@@ -1,0 +1,42 @@
+[
+  {
+    "id": "cust_001",
+    "name": "John Smith",
+    "email_masked": "j***@g***.com",
+    "risk_flags": ["high_velocity", "geo_anomaly"],
+    "created_at": "2024-01-15T10:30:00Z",
+    "status": "active"
+  },
+  {
+    "id": "cust_017",
+    "name": "Sarah Johnson",
+    "email_masked": "s***@y***.com",
+    "risk_flags": ["device_change"],
+    "created_at": "2024-02-20T14:15:00Z",
+    "status": "active"
+  },
+  {
+    "id": "cust_025",
+    "name": "Michael Chen",
+    "email_masked": "m***@h***.com",
+    "risk_flags": ["chargeback_history"],
+    "created_at": "2024-01-08T09:45:00Z",
+    "status": "active"
+  },
+  {
+    "id": "cust_033",
+    "name": "Emily Davis",
+    "email_masked": "e***@o***.com",
+    "risk_flags": [],
+    "created_at": "2024-03-10T16:20:00Z",
+    "status": "active"
+  },
+  {
+    "id": "cust_041",
+    "name": "Robert Wilson",
+    "email_masked": "r***@a***.com",
+    "risk_flags": ["mcc_anomaly", "time_anomaly"],
+    "created_at": "2024-02-05T11:10:00Z",
+    "status": "active"
+  }
+]

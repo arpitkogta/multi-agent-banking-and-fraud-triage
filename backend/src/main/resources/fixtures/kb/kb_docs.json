@@ -1,0 +1,117 @@
+[
+  {
+    "id": "kb_disputes",
+    "title": "How Disputes Work",
+    "anchor": "dispute-process",
+    "chunks": [
+      {
+        "id": "chunk_001",
+        "content": "Disputes can be opened for unauthorized transactions, billing errors, or merchant issues. Use reason code 10.4 for unauthorized transactions.",
+        "metadata": {
+          "section": "process",
+          "priority": "high"
+        }
+      },
+      {
+        "id": "chunk_002",
+        "content": "Always verify customer identity before opening disputes. Check transaction history and device information.",
+        "metadata": {
+          "section": "verification",
+          "priority": "high"
+        }
+      }
+    ]
+  },
+  {
+    "id": "kb_card_freeze",
+    "title": "Card Freeze Process",
+    "anchor": "freeze-procedure",
+    "chunks": [
+      {
+        "id": "chunk_003",
+        "content": "Card freeze requires OTP verification for security. Customer must provide valid OTP within 5 minutes.",
+        "metadata": {
+          "section": "security",
+          "priority": "critical"
+        }
+      },
+      {
+        "id": "chunk_004",
+        "content": "Frozen cards cannot be used for new transactions. Existing pending transactions may still process.",
+        "metadata": {
+          "section": "impact",
+          "priority": "medium"
+        }
+      }
+    ]
+  },
+  {
+    "id": "kb_travel_notice",
+    "title": "Setting Travel Notice",
+    "anchor": "travel-setup",
+    "chunks": [
+      {
+        "id": "chunk_005",
+        "content": "Customers should set travel notices 24 hours before departure to avoid transaction blocks.",
+        "metadata": {
+          "section": "timing",
+          "priority": "medium"
+        }
+      },
+      {
+        "id": "chunk_006",
+        "content": "Travel notices can be set for specific countries and date ranges through the mobile app or website.",
+        "metadata": {
+          "section": "method",
+          "priority": "medium"
+        }
+      }
+    ]
+  },
+  {
+    "id": "kb_duplicate_charges",
+    "title": "Duplicate Charge Resolution",
+    "anchor": "duplicate-handling",
+    "chunks": [
+      {
+        "id": "chunk_007",
+        "content": "Pending vs captured transactions: Pending charges are authorizations, captured charges are final. Duplicates often resolve automatically.",
+        "metadata": {
+          "section": "explanation",
+          "priority": "high"
+        }
+      },
+      {
+        "id": "chunk_008",
+        "content": "If duplicate charges persist for more than 3 business days, escalate to dispute team.",
+        "metadata": {
+          "section": "escalation",
+          "priority": "medium"
+        }
+      }
+    ]
+  },
+  {
+    "id": "kb_risk_assessment",
+    "title": "Risk Assessment Guidelines",
+    "anchor": "risk-factors",
+    "chunks": [
+      {
+        "id": "chunk_009",
+        "content": "High-risk factors: geo-velocity violations, device changes, unusual MCC codes, high amounts, off-hours transactions.",
+        "metadata": {
+          "section": "factors",
+          "priority": "high"
+        }
+      },
+      {
+        "id": "chunk_010",
+        "content": "Medium-risk factors: new merchant, unusual spending pattern, first-time international transaction.",
+        "metadata": {
+          "section": "factors",
+          "priority": "medium"
+        }
+      }
+    ]
+  }
+]

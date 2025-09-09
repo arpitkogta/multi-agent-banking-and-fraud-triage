@@ -1,0 +1,33 @@
+{
+  "id": "case_007",
+  "name": "Risk Service Timeout - Fallback",
+  "description": "Risk service timeout, fallback to rule-based with medium risk cap",
+  "input": {
+    "customerId": "cust_033",
+    "suspectTxnId": "txn_01007",
+    "alertType": "risk_timeout",
+    "userMessage": "I see some suspicious activity on my account"
+  },
+  "expected": {
+    "riskScore": "medium",
+    "fallbackUsed": true,
+    "riskUnavailable": true,
+    "ruleBasedFallback": true,
+    "maxRiskMedium": true,
+    "traceSteps": [
+      "getProfile",
+      "getRecentTransactions",
+      "riskSignals",
+      "kbLookup",
+      "decide",
+      "proposeAction"
+    ]
+  },
+  "assertions": [
+    "fallbackUsed=true in response",
+    "risk capped at medium",
+    "reason includes risk_unavailable",
+    "SSE shows fallback_triggered",
+    "rule-based decision made"
+  ]
+}

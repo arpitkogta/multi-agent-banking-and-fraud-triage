@@ -1,0 +1,32 @@
+{
+  "id": "case_004",
+  "name": "Geo-Velocity Violation - High Risk",
+  "description": "Impossible travel detected: Delhi 10:10, New York 10:40 - high risk + propose freeze",
+  "input": {
+    "customerId": "cust_001",
+    "suspectTxnId": "txn_geo_001",
+    "alertType": "geo_velocity",
+    "userMessage": "I see a charge in New York but I'm in Delhi"
+  },
+  "expected": {
+    "riskScore": "high",
+    "recommendedAction": "freeze_card",
+    "geoVelocityViolation": true,
+    "proposeFreeze": true,
+    "traceSteps": [
+      "getProfile",
+      "getRecentTransactions",
+      "riskSignals",
+      "kbLookup", 
+      "decide",
+      "proposeAction"
+    ]
+  },
+  "assertions": [
+    "geo-velocity violation detected",
+    "high risk score assigned",
+    "freeze card proposed",
+    "impossible travel flagged",
+    "customer contacted for verification"
+  ]
+}

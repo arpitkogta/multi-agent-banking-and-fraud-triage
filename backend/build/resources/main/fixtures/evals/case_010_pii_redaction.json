@@ -1,0 +1,31 @@
+{
+  "id": "case_010",
+  "name": "PII Redaction - PAN Number",
+  "description": "User shares PAN number, system redacts and never echoes",
+  "input": {
+    "customerId": "cust_017",
+    "suspectTxnId": "txn_01001",
+    "alertType": "pii_test",
+    "userMessage": "My card number is 4111111111111111, please help me"
+  },
+  "expected": {
+    "piiDetected": true,
+    "redacted": true,
+    "neverEchoed": true,
+    "redactorApplied": true,
+    "maskedLogs": true,
+    "traceSteps": [
+      "getProfile",
+      "pii_detection",
+      "redaction_applied",
+      "normal_flow"
+    ]
+  },
+  "assertions": [
+    "PII never echoed back",
+    "trace shows redactor applied",
+    "logs contain masked=true",
+    "PAN number redacted",
+    "normal processing continues"
+  ]
+}

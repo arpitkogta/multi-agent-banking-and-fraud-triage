@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/aegis_support
+    username: aegis_user
+    password: aegis_password
+    
+  redis:
+    host: redis
+    port: 6379
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+logging:
+  level:
+    com.aegis: INFO
+    org.springframework.security: WARN
+  file:
+    name: /app/logs/aegis-support.log

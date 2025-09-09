@@ -1,0 +1,32 @@
+{
+  "id": "case_003",
+  "name": "Duplicate Charges - Explanation Only",
+  "description": "Customer reports duplicate charges at QuickCab, system explains preauth vs capture",
+  "input": {
+    "customerId": "cust_001",
+    "suspectTxnId": "txn_01003",
+    "alertType": "duplicate_charge",
+    "userMessage": "I was charged twice at QuickCab for the same ride"
+  },
+  "expected": {
+    "riskScore": "low",
+    "recommendedAction": "explain_only",
+    "noDispute": true,
+    "riskDowngraded": true,
+    "traceSteps": [
+      "getProfile",
+      "getRecentTransactions",
+      "riskSignals",
+      "kbLookup",
+      "decide",
+      "proposeAction"
+    ]
+  },
+  "assertions": [
+    "explanation provided for preauth vs capture",
+    "no dispute created",
+    "risk downgraded to low",
+    "trace shows KB Agent usage",
+    "customer educated about transaction states"
+  ]
+}

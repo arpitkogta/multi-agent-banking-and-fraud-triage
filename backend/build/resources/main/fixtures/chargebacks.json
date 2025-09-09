@@ -1,0 +1,35 @@
+[
+  {
+    "id": "cb_001",
+    "customerId": "cust_025",
+    "transactionId": "txn_old_001",
+    "amount": -500000,
+    "currency": "INR",
+    "reasonCode": "10.4",
+    "status": "won",
+    "createdAt": "2024-12-15T09:30:00Z",
+    "resolvedAt": "2024-12-20T14:45:00Z"
+  },
+  {
+    "id": "cb_002",
+    "customerId": "cust_025",
+    "transactionId": "txn_old_002",
+    "amount": -75000,
+    "currency": "INR",
+    "reasonCode": "10.4",
+    "status": "lost",
+    "createdAt": "2024-11-20T16:15:00Z",
+    "resolvedAt": "2024-11-25T11:20:00Z"
+  },
+  {
+    "id": "cb_003",
+    "customerId": "cust_001",
+    "transactionId": "txn_old_003",
+    "amount": -120000,
+    "currency": "INR",
+    "reasonCode": "10.4",
+    "status": "pending",
+    "createdAt": "2025-01-05T13:45:00Z",
+    "resolvedAt": null
+  }
+]

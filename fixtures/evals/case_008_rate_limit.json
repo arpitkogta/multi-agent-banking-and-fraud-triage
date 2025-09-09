@@ -1,0 +1,30 @@
+{
+  "id": "case_008",
+  "name": "Rate Limit - 429 Behavior",
+  "description": "Rate limit triggered, 429 response with retry-after, succeeds on retry",
+  "input": {
+    "customerId": "cust_017",
+    "suspectTxnId": "txn_01001",
+    "alertType": "rate_limit_test",
+    "userMessage": "Test rate limiting behavior"
+  },
+  "expected": {
+    "firstCall": "429",
+    "retryAfterMs": 2000,
+    "secondCall": "success",
+    "noDuplicates": true,
+    "backoffRespected": true,
+    "traceSteps": [
+      "rate_limit_check",
+      "retry_after_delay",
+      "normal_flow"
+    ]
+  },
+  "assertions": [
+    "first call returns 429",
+    "retryAfterMs=2000 provided",
+    "FE disables action for ~2s",
+    "no duplicate triage runs",
+    "next attempt succeeds"
+  ]
+}
