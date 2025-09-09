@@ -67,7 +67,6 @@ Aegis Support is a multi-agent banking fraud detection and triage system designe
 - **Database Partitioning**: Monthly partitions for transactions
 - **Indexing Strategy**: (customerId, ts desc), (merchant), (mcc)
 - **Caching**: Redis for frequently accessed data
-- **Virtualization**: Frontend table virtualization for >2k rows
 
 ### Security
 - **API Authentication**: X-API-Key for mutating operations
