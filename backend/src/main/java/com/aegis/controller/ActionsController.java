@@ -46,12 +46,10 @@ public class ActionsController {
                    requestId, maskedCardId, otp != null);
         
         try {
-            // Validate API key
             if (apiKey == null || !isValidApiKey(apiKey)) {
                 return ResponseEntity.status(401).body(Map.of("error", "Invalid API key"));
             }
             
-            // Validate action with compliance agent
             Map<String, Object> context = new HashMap<>();
             context.put("cardId", cardId);
             context.put("otp", otp);
@@ -71,7 +69,6 @@ public class ActionsController {
                 return ResponseEntity.ok(response);
             }
             
-            // Check OTP requirement
             Map<String, Object> requirements = (Map<String, Object>) validation.get("requirements");
             boolean otpRequired = (Boolean) requirements.getOrDefault("otpRequired", false);
             
@@ -97,7 +94,6 @@ public class ActionsController {
                 return ResponseEntity.ok(response);
             }
             
-            // Execute freeze action
             boolean success = executeFreezeCard(cardId);
             
             Map<String, Object> response = new HashMap<>();
@@ -134,12 +130,10 @@ public class ActionsController {
                    requestId, txnId, reasonCode, confirm);
         
         try {
-            // Validate API key
             if (apiKey == null || !isValidApiKey(apiKey)) {
                 return ResponseEntity.status(401).body(Map.of("error", "Invalid API key"));
             }
             
-            // Validate action with compliance agent
             Map<String, Object> context = new HashMap<>();
             context.put("transactionId", txnId);
             context.put("reasonCode", reasonCode);
@@ -169,7 +163,6 @@ public class ActionsController {
                 return ResponseEntity.ok(response);
             }
             
-            // Execute dispute creation
             String caseId = executeOpenDispute(txnId, reasonCode);
             
             Map<String, Object> response = new HashMap<>();
@@ -206,12 +199,10 @@ public class ActionsController {
                    maskedCustomerId, message != null ? "provided" : "none");
         
         try {
-            // Validate API key
             if (apiKey == null || !isValidApiKey(apiKey)) {
                 return ResponseEntity.status(401).body(Map.of("error", "Invalid API key"));
             }
             
-            // Validate action with compliance agent
             Map<String, Object> context = new HashMap<>();
             context.put("message", message);
             
@@ -229,7 +220,6 @@ public class ActionsController {
                 return ResponseEntity.ok(response);
             }
             
-            // Execute contact action
             String contactId = executeContactCustomer(customerId, message);
             
             Map<String, Object> response = new HashMap<>();
@@ -248,32 +238,26 @@ public class ActionsController {
         }
     }
     
-    // Helper methods
     private boolean isValidApiKey(String apiKey) {
-        // Simplified API key validation - in real implementation, would check against database
         return "test-api-key-123".equals(apiKey) || "admin-api-key-456".equals(apiKey);
     }
     
     private boolean isValidOTP(String otp) {
-        // Simplified OTP validation - in real implementation, would validate against OTP service
         return "123456".equals(otp);
     }
     
     private boolean executeFreezeCard(String cardId) {
-        // Simplified card freeze - in real implementation, would call card service
         logger.info("Executing card freeze for cardId={}", cardId);
         return true; // Mock success
     }
     
     private String executeOpenDispute(String txnId, String reasonCode) {
-        // Simplified dispute creation - in real implementation, would call dispute service
         String caseId = "CASE-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         logger.info("Executing dispute creation: caseId={}, txnId={}, reasonCode={}", caseId, txnId, reasonCode);
         return caseId;
     }
     
     private String executeContactCustomer(String customerId, String message) {
-        // Simplified customer contact - in real implementation, would call notification service
         String contactId = "CONTACT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         logger.info("Executing customer contact: contactId={}, customerId={}", contactId, customerId);
         return contactId;

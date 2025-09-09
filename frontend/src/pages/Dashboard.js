@@ -38,9 +38,8 @@ function Dashboard() {
     try {
       setLoading(true);
       
-      // Mock data for now - in real implementation would call APIs
       setKpis({
-        totalSpend: 1250000, // ₹12,500
+        totalSpend: 1250000,
         highRiskAlerts: 23,
         disputesOpened: 8,
         avgTriageTime: 3.2
@@ -91,7 +90,6 @@ function Dashboard() {
 
       console.log('Triage response:', response.data);
       
-      // Update alert status
       setAlerts(prev => prev.map(a => 
         a.id === alertId ? { ...a, status: 'completed' } : a
       ));

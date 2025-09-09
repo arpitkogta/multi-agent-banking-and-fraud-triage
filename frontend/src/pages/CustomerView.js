@@ -37,15 +37,12 @@ function CustomerView() {
     try {
       setLoading(true);
       
-      // Load customer transactions
       const txnResponse = await axios.get(`/api/customer/${id}/transactions?last=90`);
       setTransactions(txnResponse.data.transactions || []);
 
-      // Load customer insights
       const insightsResponse = await axios.get(`/api/customer/${id}/insights/summary`);
       setInsights(insightsResponse.data);
 
-      // Mock customer data
       setCustomer({
         id: id,
         name: `Customer ${id}`,

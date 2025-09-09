@@ -33,7 +33,6 @@ function AlertsQueue() {
     try {
       setLoading(true);
       
-      // Mock alerts data - in real implementation would call API
       setAlerts([
         {
           id: 'alert_001',
@@ -98,7 +97,6 @@ function AlertsQueue() {
 
       setTriageResult(response.data);
       
-      // Update alert status
       setAlerts(prev => prev.map(a => 
         a.id === selectedAlert.id ? { ...a, status: 'completed' } : a
       ));

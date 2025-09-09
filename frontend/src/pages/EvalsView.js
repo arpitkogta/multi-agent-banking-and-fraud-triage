@@ -30,7 +30,6 @@ function EvalsView() {
       setRunning(true);
       setError(null);
       
-      // Call the real backend API
       const response = await axios.post('http://localhost:8080/api/evals/run', {}, {
         headers: {
           'X-API-Key': 'test-key',
@@ -52,7 +51,6 @@ function EvalsView() {
     try {
       setError(null);
       
-      // Load existing evaluation results
       const response = await axios.get('http://localhost:8080/api/evals/results', {
         headers: {
           'X-API-Key': 'test-key'
@@ -67,7 +65,6 @@ function EvalsView() {
     }
   };
 
-  // Load results on component mount
   useEffect(() => {
     loadEvaluationResults();
   }, []);

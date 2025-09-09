@@ -68,13 +68,12 @@ public class AgentOrchestrator {
         long startTime = System.currentTimeMillis();
         
         try {
-            // Check for specific alert types and execute appropriate workflows
             String alertType = request.getAlertType();
             boolean isMerchantDisambiguation = "merchant_disambiguation".equals(alertType) ||
                                              (request.getUserMessage() != null && 
                                               request.getUserMessage().toLowerCase().contains("don't recognize") &&
                                               request.getUserMessage().toLowerCase().contains("charge") &&
-                                              !"unauthorized_charge".equals(alertType)); // Don't trigger for unauthorized charges
+                                              !"unauthorized_charge".equals(alertType));
             
             logger.info("Workflow selection: alertType={}, userMessage={}, isMerchantDisambiguation={}", 
                        alertType, request.getUserMessage(), isMerchantDisambiguation);
@@ -105,9 +104,7 @@ public class AgentOrchestrator {
                 executeStandardTriageWorkflow(request, traceData);
             }
             
-            // Set response data from trace data
             if (traceData.containsKey("step_6_action_execution")) {
-                // Specialized workflows (card_lost, duplicate_charge, unauthorized_charge, merchant_disambiguation, geo_velocity, chargeback_history)
                 Map<String, Object> actionStep = (Map<String, Object>) traceData.get("step_6_action_execution");
                 Map<String, Object> actionResult = (Map<String, Object>) actionStep.get("data");
                 Map<String, Object> decisionStep = (Map<String, Object>) traceData.get("step_5_decide");
@@ -119,17 +116,15 @@ public class AgentOrchestrator {
                 response.setRequiresOTP((Boolean) actionResult.getOrDefault("requiresOTP", false));
                 response.setFallbackUsed((Boolean) decisionResult.getOrDefault("fallbackUsed", false));
             } else if (traceData.containsKey("step_4_action_card_creation")) {
-                // KB FAQ workflow
                 Map<String, Object> actionStep = (Map<String, Object>) traceData.get("step_4_action_card_creation");
                 Map<String, Object> actionResult = (Map<String, Object>) actionStep.get("data");
                 
-                response.setRiskScore("low"); // KB FAQ is typically low risk
+                response.setRiskScore("low");
                 response.setRecommendedAction((String) actionResult.get("action"));
                 response.setReasons(Arrays.asList("kb_faq", "guidance_provided"));
                 response.setRequiresOTP((Boolean) actionResult.getOrDefault("requiresOTP", false));
                 response.setFallbackUsed(false);
             } else {
-                // Standard triage workflow
                 Map<String, Object> decisionStep = (Map<String, Object>) traceData.get("step_5_decide");
                 Map<String, Object> actionStep = (Map<String, Object>) traceData.get("step_6_proposeAction");
                 
@@ -169,12 +164,10 @@ public class AgentOrchestrator {
         Map<String, Object> result = new HashMap<>();
         
         try {
-            // Check circuit breaker
             if (metricsService.isCircuitBreakerOpen(stepName)) {
                 throw new RuntimeException("Circuit breaker open for " + stepName);
             }
             
-            // Execute with 1 second timeout
             CompletableFuture<Map<String, Object>> future = CompletableFuture.supplyAsync(() -> {
                 try {
                     return step.execute();
@@ -191,7 +184,6 @@ public class AgentOrchestrator {
             result.put("duration", duration);
             result.put("data", stepResult);
             
-            // Record successful tool call and latency
             metricsService.recordToolCall(stepName, true);
             metricsService.recordAgentLatency(duration);
             metricsService.recordCircuitBreakerSuccess(stepName);
@@ -205,7 +197,6 @@ public class AgentOrchestrator {
             result.put("error", e.getMessage());
             result.put("data", createFallbackResult(stepName, e.getMessage()));
             
-            // Record failed tool call, fallback, and circuit breaker failure
             metricsService.recordToolCall(stepName, false);
             metricsService.recordAgentFallback(stepName);
             metricsService.recordCircuitBreakerFailure(stepName);
@@ -244,31 +235,26 @@ public class AgentOrchestrator {
         Map<String, Object> decision = new HashMap<>();
         List<String> reasons = new ArrayList<>();
         
-        // Analyze risk signals
         Map<String, Object> riskData = (Map<String, Object>) traceData.get("step_3_riskSignals");
         Map<String, Object> riskResult = (Map<String, Object>) riskData.get("data");
         
         String riskScore = (String) riskResult.getOrDefault("riskScore", "medium");
         List<String> riskReasons = (List<String>) riskResult.getOrDefault("reasons", new ArrayList<>());
         
-        // Analyze transaction patterns
         Map<String, Object> txnData = (Map<String, Object>) traceData.get("step_2_getRecentTransactions");
         Map<String, Object> txnResult = (Map<String, Object>) txnData.get("data");
         
-        // Check for duplicate transactions
         if (isDuplicateTransaction(request.getSuspectTxnId(), txnResult)) {
             riskScore = "low";
             reasons.add("duplicate_transaction");
             reasons.add("preauth_vs_capture");
         }
         
-        // Check for geo-velocity violations
         if (hasGeoVelocityViolation(txnResult)) {
             riskScore = "high";
             reasons.add("geo_velocity_violation");
         }
         
-        // Check for device changes
         if (hasDeviceChange(txnResult)) {
             if ("low".equals(riskScore)) {
                 riskScore = "medium";
@@ -276,7 +262,6 @@ public class AgentOrchestrator {
             reasons.add("device_change");
         }
         
-        // Check for chargeback history
         Map<String, Object> profileData = (Map<String, Object>) traceData.get("step_1_getProfile");
         Map<String, Object> profileResult = (Map<String, Object>) profileData.get("data");
         
@@ -300,12 +285,10 @@ public class AgentOrchestrator {
         String riskScore = (String) decisionData.get("riskScore");
         List<String> reasons = (List<String>) decisionData.get("reasons");
         
-        // Handle null riskScore
         if (riskScore == null) {
-            riskScore = "medium"; // Default fallback
+            riskScore = "medium";
         }
         
-        // Handle null reasons
         if (reasons == null) {
             reasons = new ArrayList<>();
         }
@@ -337,24 +320,19 @@ public class AgentOrchestrator {
         return action;
     }
     
-    // Helper methods for decision logic
     private boolean isDuplicateTransaction(String txnId, Map<String, Object> txnData) {
-        // Simplified logic - in real implementation, would check for pending vs captured
         return txnId.contains("duplicate") || txnId.contains("pending");
     }
     
     private boolean hasGeoVelocityViolation(Map<String, Object> txnData) {
-        // Simplified logic - in real implementation, would analyze geo coordinates and timestamps
         return txnData.containsKey("geo_velocity_violation");
     }
     
     private boolean hasDeviceChange(Map<String, Object> txnData) {
-        // Simplified logic - in real implementation, would check device history
         return txnData.containsKey("device_change");
     }
     
     private boolean hasChargebackHistory(Map<String, Object> profileData) {
-        // Simplified logic - in real implementation, would check chargeback records
         return profileData.containsKey("chargeback_history");
     }
     
@@ -362,28 +340,22 @@ public class AgentOrchestrator {
      * Executes the standard triage workflow
      */
     private void executeStandardTriageWorkflow(TriageRequest request, Map<String, Object> traceData) {
-        // Step 1: Get Profile
         traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
             profileAgent.getCustomerProfile(request.getCustomerId())));
         
-        // Step 2: Get Recent Transactions
         traceData.put("step_2_getRecentTransactions", executeStep("getRecentTransactions", () -> 
             transactionAgent.getRecentTransactions(request.getCustomerId(), 90)));
         
-        // Step 3: Risk Signals
         traceData.put("step_3_riskSignals", executeStep("riskSignals", () -> 
             riskAgent.analyzeRiskSignals(request.getCustomerId(), request.getSuspectTxnId())));
         
-        // Step 4: Knowledge Base Lookup
         traceData.put("step_4_kbLookup", executeStep("kbLookup", () -> 
             knowledgeBaseAgent.searchKnowledgeBase(request.getUserMessage())));
         
-        // Step 5: Decision Making
         Map<String, Object> decisionData = executeStep("decide", () -> 
             makeDecision(request, traceData));
         traceData.put("step_5_decide", decisionData);
         
-        // Step 6: Propose Action
         Map<String, Object> actionData = executeStep("proposeAction", () -> 
             proposeAction(request, decisionData));
         traceData.put("step_6_proposeAction", actionData);
@@ -393,22 +365,18 @@ public class AgentOrchestrator {
      * Executes the merchant disambiguation workflow
      */
     private void executeMerchantDisambiguationWorkflow(TriageRequest request, Map<String, Object> traceData) {
-        // Step 1: Get Profile
         traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
             profileAgent.getCustomerProfile(request.getCustomerId())));
         
-        // Step 2: Get Recent Transactions
         traceData.put("step_2_getRecentTransactions", executeStep("getRecentTransactions", () -> 
             transactionAgent.getRecentTransactions(request.getCustomerId(), 90)));
         
-        // Step 3: Merchant Analysis
         traceData.put("step_3_merchant_analysis", executeStep("merchant_analysis", () -> {
             // Extract merchant name from user message
             String merchantName = extractMerchantName(request.getUserMessage());
             return merchantDisambiguationAgent.analyzeMerchantDisambiguation(merchantName, request.getCustomerId());
         }));
         
-        // Step 4: Disambiguation Prompt
         Map<String, Object> merchantAnalysis = (Map<String, Object>) traceData.get("step_3_merchant_analysis");
         Map<String, Object> merchantData = (Map<String, Object>) merchantAnalysis.get("data");
         
@@ -422,10 +390,7 @@ public class AgentOrchestrator {
                 return promptResult;
             }));
             
-            // Step 5: User Selection (simulated for now)
             traceData.put("step_5_user_selection", executeStep("user_selection", () -> {
-                // In a real implementation, this would wait for user input
-                // For now, we'll simulate selecting the first candidate
                 List<Map<String, Object>> candidates = (List<Map<String, Object>>) merchantData.get("candidates");
                 if (!candidates.isEmpty()) {
                     String selectedMerchant = (String) candidates.get(0).get("merchantName");
@@ -437,7 +402,6 @@ public class AgentOrchestrator {
                 return Map.of("status", "error", "error", "No candidates available");
             }));
             
-            // Step 6: Action Execution
             traceData.put("step_6_action_execution", executeStep("action_execution", () -> {
                 Map<String, Object> action = new HashMap<>();
                 action.put("action", "merchant_disambiguated");
@@ -446,7 +410,6 @@ public class AgentOrchestrator {
                 return action;
             }));
         } else {
-            // No disambiguation needed, proceed with standard action
             traceData.put("step_4_disambiguation_prompt", Map.of("status", "skipped", "reason", "No disambiguation needed"));
             traceData.put("step_5_user_selection", Map.of("status", "skipped", "reason", "No disambiguation needed"));
             traceData.put("step_6_action_execution", executeStep("action_execution", () -> {
@@ -465,13 +428,11 @@ public class AgentOrchestrator {
     private String extractMerchantName(String userMessage) {
         if (userMessage == null) return "Unknown";
         
-        // Simple extraction - look for "at [Merchant Name]"
         String lowerMessage = userMessage.toLowerCase();
         if (lowerMessage.contains("at ")) {
             String[] parts = userMessage.split("(?i)at ");
             if (parts.length > 1) {
                 String merchantPart = parts[1].trim();
-                // Remove common suffixes
                 merchantPart = merchantPart.replaceAll("(?i)\\s+(charge|transaction|payment).*$", "");
                 return merchantPart.trim();
             }
@@ -484,11 +445,9 @@ public class AgentOrchestrator {
      * Executes the card lost workflow
      */
     private void executeCardLostWorkflow(TriageRequest request, Map<String, Object> traceData) {
-        // Step 1: Get Profile
         traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
             profileAgent.getCustomerProfile(request.getCustomerId())));
         
-        // Step 2: Get Recent Transactions
         traceData.put("step_2_getRecentTransactions", executeStep("getRecentTransactions", () -> 
             transactionAgent.getRecentTransactions(request.getCustomerId(), 7))); // Last 7 days for lost card
         
@@ -502,11 +461,9 @@ public class AgentOrchestrator {
             return riskData;
         }));
         
-        // Step 4: Knowledge Base Lookup for Card Lost Procedures
         traceData.put("step_4_kbLookup", executeStep("kbLookup", () -> 
             knowledgeBaseAgent.searchKnowledgeBase("card lost freeze procedure")));
         
-        // Step 5: Decision Making
         traceData.put("step_5_decide", executeStep("decide", () -> {
             Map<String, Object> decisionData = new HashMap<>();
             decisionData.put("reasons", Arrays.asList("card_lost", "immediate_action_required"));
@@ -530,11 +487,9 @@ public class AgentOrchestrator {
      * Executes the duplicate charge workflow
      */
     private void executeDuplicateChargeWorkflow(TriageRequest request, Map<String, Object> traceData) {
-        // Step 1: Get Profile
         traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
             profileAgent.getCustomerProfile(request.getCustomerId())));
         
-        // Step 2: Get Recent Transactions
         traceData.put("step_2_getRecentTransactions", executeStep("getRecentTransactions", () -> 
             transactionAgent.getRecentTransactions(request.getCustomerId(), 30))); // Last 30 days for duplicates
         
@@ -548,11 +503,9 @@ public class AgentOrchestrator {
             return riskData;
         }));
         
-        // Step 4: Knowledge Base Lookup for Duplicate Charge Explanation
         traceData.put("step_4_kbLookup", executeStep("kbLookup", () -> 
             knowledgeBaseAgent.searchKnowledgeBase("duplicate charge preauth capture explanation")));
         
-        // Step 5: Decision Making
         traceData.put("step_5_decide", executeStep("decide", () -> {
             Map<String, Object> decisionData = new HashMap<>();
             decisionData.put("reasons", Arrays.asList("duplicate_transaction", "preauth_capture"));
@@ -577,11 +530,9 @@ public class AgentOrchestrator {
      * Executes the unauthorized charge workflow
      */
     private void executeUnauthorizedChargeWorkflow(TriageRequest request, Map<String, Object> traceData) {
-        // Step 1: Get Profile
         traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
             profileAgent.getCustomerProfile(request.getCustomerId())));
         
-        // Step 2: Get Recent Transactions
         traceData.put("step_2_getRecentTransactions", executeStep("getRecentTransactions", () -> 
             transactionAgent.getRecentTransactions(request.getCustomerId(), 90)));
         
@@ -595,11 +546,9 @@ public class AgentOrchestrator {
             return riskData;
         }));
         
-        // Step 4: Knowledge Base Lookup for Dispute Procedures
         traceData.put("step_4_kbLookup", executeStep("kbLookup", () -> 
             knowledgeBaseAgent.searchKnowledgeBase("unauthorized charge dispute procedure")));
         
-        // Step 5: Decision Making
         traceData.put("step_5_decide", executeStep("decide", () -> {
             Map<String, Object> decisionData = new HashMap<>();
             decisionData.put("reasons", Arrays.asList("unauthorized_transaction", "fraud_pattern"));
@@ -624,11 +573,9 @@ public class AgentOrchestrator {
      * Executes the geo-velocity workflow
      */
     private void executeGeoVelocityWorkflow(TriageRequest request, Map<String, Object> traceData) {
-        // Step 1: Get Profile
         traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
             profileAgent.getCustomerProfile(request.getCustomerId())));
         
-        // Step 2: Get Recent Transactions
         traceData.put("step_2_getRecentTransactions", executeStep("getRecentTransactions", () -> 
             transactionAgent.getRecentTransactions(request.getCustomerId(), 24))); // Last 24 hours for geo velocity
         
@@ -643,11 +590,9 @@ public class AgentOrchestrator {
             return riskData;
         }));
         
-        // Step 4: Knowledge Base Lookup for Geo-Velocity Procedures
         traceData.put("step_4_kbLookup", executeStep("kbLookup", () -> 
             knowledgeBaseAgent.searchKnowledgeBase("geo velocity violation impossible travel")));
         
-        // Step 5: Decision Making
         traceData.put("step_5_decide", executeStep("decide", () -> {
             Map<String, Object> decisionData = new HashMap<>();
             decisionData.put("reasons", Arrays.asList("geo_velocity_violation", "impossible_travel"));
@@ -673,11 +618,9 @@ public class AgentOrchestrator {
      * Executes the chargeback escalation workflow
      */
     private void executeChargebackEscalationWorkflow(TriageRequest request, Map<String, Object> traceData) {
-        // Step 1: Get Profile
         traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
             profileAgent.getCustomerProfile(request.getCustomerId())));
         
-        // Step 2: Get Recent Transactions
         traceData.put("step_2_getRecentTransactions", executeStep("getRecentTransactions", () -> 
             transactionAgent.getRecentTransactions(request.getCustomerId(), 90)));
         
@@ -692,11 +635,9 @@ public class AgentOrchestrator {
             return riskData;
         }));
         
-        // Step 4: Knowledge Base Lookup for Escalation Procedures
         traceData.put("step_4_kbLookup", executeStep("kbLookup", () -> 
             knowledgeBaseAgent.searchKnowledgeBase("chargeback history escalation procedures")));
         
-        // Step 5: Decision Making
         traceData.put("step_5_decide", executeStep("decide", () -> {
             Map<String, Object> decisionData = new HashMap<>();
             decisionData.put("reasons", Arrays.asList("chargeback_history", "repeat_offender"));
