@@ -339,10 +339,8 @@ The evaluation measures:
 ## Documentation
 
 - [Architecture Design](docs/ARCHITECTURE.md)
-- [API Documentation](docs/API.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
 - [ADR Decisions](docs/ADR.md)
-- [Code Cleanup Summary](CODE_CLEANUP_SUMMARY.md)
+- [Current State](docs/CURRENT_STATE.md)
 
 ## Recent Updates
 
@@ -355,4 +353,4 @@ The system has been optimized for production readiness with comprehensive code c
 - **Streamlined build configuration** for faster compilation and smaller JAR size
 - **Maintained 100% test success rate** while reducing codebase complexity
 
-See [CODE_CLEANUP_SUMMARY.md](CODE_CLEANUP_SUMMARY.md) for detailed information about the optimization changes.
+The optimization changes include streamlined dependencies, clean architecture, and improved build performance.
