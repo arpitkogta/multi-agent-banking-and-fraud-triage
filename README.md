@@ -104,7 +104,7 @@ node scripts/run-evals.js
 
 ## Architecture Overview
 
-- **Frontend**: React + TypeScript dashboard with real-time triage workflow
+- **Frontend**: React + JavaScript dashboard with real-time triage workflow
 - **Backend**: Spring Boot microservices with multi-agent fraud detection
 - **Database**: PostgreSQL with optimized schema and indexing
 - **Agents**: Orchestrated AI agents for fraud analysis, compliance, and insights
