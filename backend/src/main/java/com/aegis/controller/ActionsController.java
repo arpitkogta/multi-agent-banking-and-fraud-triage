@@ -9,9 +9,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.time.OffsetDateTime;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 @RestController
 @RequestMapping("/action")
@@ -28,6 +31,21 @@ public class ActionsController {
     @Autowired
     private MetricsService metricsService;
     
+    // Cache API key validations for 1 hour
+    private final Cache<String, Boolean> apiKeyCache = Caffeine.newBuilder()
+        .maximumSize(1000)
+        .expireAfterWrite(1, TimeUnit.HOURS)
+        .build();
+        
+    // Cache OTP validations for 5 minutes
+    private final Cache<String, String> otpCache = Caffeine.newBuilder()
+        .maximumSize(10_000)
+        .expireAfterWrite(5, TimeUnit.MINUTES)
+        .build();
+    
+    // Track card freeze requests to prevent duplicates
+    private final Set<String> inProgressFreezes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    
     /**
      * POST /api/action/freeze-card - Freeze a card
      */
@@ -41,74 +59,84 @@ public class ActionsController {
         String cardId = (String) request.get("cardId");
         String otp = (String) request.get("otp");
         
-        String maskedCardId = cardId != null ? "****" + cardId.substring(Math.max(0, cardId.length() - 4)) : "****";
-        logger.info("Freeze card request: requestId={}, cardId={}, hasOTP={}", 
-                   requestId, maskedCardId, otp != null);
+        if (cardId == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Card ID is required"));
+        }
         
+        String maskedCardId = piiRedactionService.maskCustomerId(cardId);
+        String freezeKey = cardId + "-" + requestId;
+
         try {
-            if (apiKey == null || !isValidApiKey(apiKey)) {
+            if (!isValidApiKey(apiKey)) {
                 return ResponseEntity.status(401).body(Map.of("error", "Invalid API key"));
             }
             
-            Map<String, Object> context = new HashMap<>();
-            context.put("cardId", cardId);
-            context.put("otp", otp);
-            
-            Map<String, Object> validation = complianceAgent.validateAction("freeze_card", cardId, context);
-            
-            if (!(Boolean) validation.get("isCompliant")) {
-                logger.warn("Freeze card blocked for cardId={}, violations: {}", 
-                           maskedCardId, validation.get("violations"));
-                
-                Map<String, Object> response = new HashMap<>();
-                response.put("status", "BLOCKED");
-                response.put("reason", "Policy violation");
-                response.put("violations", validation.get("violations"));
-                response.put("requestId", requestId);
-                
-                return ResponseEntity.ok(response);
+            if (!inProgressFreezes.add(freezeKey)) {
+                return ResponseEntity.ok(Map.of(
+                    "status", "IN_PROGRESS", 
+                    "requestId", requestId));
             }
-            
+
+            // Faster compliance check with timeout
+            Map<String, Object> context = Map.of("cardId", cardId, "otp", otp != null ? otp : "");
+            Map<String, Object> validation = CompletableFuture
+                .supplyAsync(() -> complianceAgent.validateAction("freeze_card", cardId, context))
+                .get(500, TimeUnit.MILLISECONDS);
+
+            if (!(Boolean) validation.get("isCompliant")) {
+                return ResponseEntity.ok(Map.of(
+                    "status", "BLOCKED",
+                    "violations", validation.get("violations"),
+                    "requestId", requestId));
+            }
+
             Map<String, Object> requirements = (Map<String, Object>) validation.get("requirements");
             boolean otpRequired = (Boolean) requirements.getOrDefault("otpRequired", false);
-            
-            if (otpRequired && otp == null) {
-                logger.info("OTP required for freeze card: cardId={}", maskedCardId);
+
+            if (otpRequired) {
+                if (otp == null) {
+                    String cachedOtp = generateAndCacheOTP(cardId);
+                    return ResponseEntity.ok(Map.of(
+                        "status", "PENDING_OTP",
+                        "requestId", requestId,
+                        "otpSent", true));
+                }
                 
-                Map<String, Object> response = new HashMap<>();
-                response.put("status", "PENDING_OTP");
-                response.put("message", "OTP required to freeze card");
-                response.put("requestId", requestId);
-                
-                return ResponseEntity.ok(response);
+                if (!validateOTP(cardId, otp)) {
+                    return ResponseEntity.ok(Map.of(
+                        "status", "INVALID_OTP",
+                        "requestId", requestId));
+                }
             }
-            
-            if (otpRequired && !isValidOTP(otp)) {
-                logger.warn("Invalid OTP for freeze card: cardId={}", maskedCardId);
-                
-                Map<String, Object> response = new HashMap<>();
-                response.put("status", "INVALID_OTP");
-                response.put("message", "Invalid OTP provided");
-                response.put("requestId", requestId);
-                
-                return ResponseEntity.ok(response);
-            }
-            
-            boolean success = executeFreezeCard(cardId);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", success ? "FROZEN" : "FAILED");
-            response.put("cardId", cardId);
-            response.put("requestId", requestId);
-            response.put("timestamp", java.time.OffsetDateTime.now());
-            
-            logger.info("Card freeze {} for cardId={}", success ? "successful" : "failed", maskedCardId);
-            
-            return ResponseEntity.ok(response);
-            
+
+            // Execute freeze with timeout
+            boolean success = CompletableFuture
+                .supplyAsync(() -> executeFreezeCard(cardId))
+                .get(750, TimeUnit.MILLISECONDS);
+
+            return ResponseEntity.ok(Map.of(
+                "status", success ? "FROZEN" : "FAILED",
+                "cardId", cardId,
+                "requestId", requestId,
+                "timestamp", OffsetDateTime.now()));
+
+        } catch (TimeoutException e) {
+            logger.error("Timeout freezing card for cardId={}", maskedCardId);
+            return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT)
+                .body(Map.of(
+                    "error", "Operation timed out",
+                    "requestId", requestId,
+                    "retryAfter", 1000));
+                    
         } catch (Exception e) {
             logger.error("Error freezing card for cardId={}", maskedCardId, e);
-            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to freeze card"));
+            return ResponseEntity.internalServerError()
+                .body(Map.of(
+                    "error", "Failed to freeze card",
+                    "requestId", requestId));
+                    
+        } finally {
+            inProgressFreezes.remove(freezeKey);
         }
     }
     
@@ -239,16 +267,37 @@ public class ActionsController {
     }
     
     private boolean isValidApiKey(String apiKey) {
-        return "test-api-key-123".equals(apiKey) || "admin-api-key-456".equals(apiKey);
+        if (apiKey == null) {
+            return false;
+        }
+        return apiKeyCache.get(apiKey, k -> 
+            "test-api-key-123".equals(k) || "admin-api-key-456".equals(k));
     }
     
-    private boolean isValidOTP(String otp) {
-        return "123456".equals(otp);
+    private String generateAndCacheOTP(String cardId) {
+        String otp = String.format("%06d", new Random().nextInt(1000000));
+        otpCache.put(cardId, otp);
+        return otp;
+    }
+    
+    private boolean validateOTP(String cardId, String otp) {
+        String cachedOtp = otpCache.getIfPresent(cardId);
+        if (cachedOtp != null && cachedOtp.equals(otp)) {
+            otpCache.invalidate(cardId);
+            return true;
+        }
+        return false;
     }
     
     private boolean executeFreezeCard(String cardId) {
-        logger.info("Executing card freeze for cardId={}", cardId);
-        return true; // Mock success
+        // Simulated card freeze with 95% success rate
+        boolean success = Math.random() < 0.95;
+        if (success) {
+            logger.info("Card freeze executed successfully for cardId={}", cardId);
+        } else {
+            logger.error("Card freeze failed for cardId={}", cardId);
+        }
+        return success;
     }
     
     private String executeOpenDispute(String txnId, String reasonCode) {

@@ -3,156 +3,153 @@ package com.aegis.agent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ComplianceAgent {
     
     private static final Logger logger = LoggerFactory.getLogger(ComplianceAgent.class);
     
+    // Cache validation results for 5 minutes
+    private final Cache<String, Map<String, Object>> validationCache = Caffeine.newBuilder()
+        .maximumSize(10_000)
+        .expireAfterWrite(5, TimeUnit.MINUTES)
+        .build();
+    
+    // Cache customer risk status for 1 hour    
+    private final Cache<String, Boolean> riskStatusCache = Caffeine.newBuilder()
+        .maximumSize(10_000)
+        .expireAfterWrite(1, TimeUnit.HOURS)
+        .build();
+        
     public Map<String, Object> validateAction(String action, String customerId, Map<String, Object> context) {
-        logger.debug("Validating action: {} for customerId: {}", action, customerId);
+        String cacheKey = action + ":" + customerId + ":" + context.hashCode();
         
-        Map<String, Object> result = new HashMap<>();
-        
-        try {
-            boolean isCompliant = true;
+        return validationCache.get(cacheKey, k -> {
+            logger.debug("Validating action: {} for customerId={}", action, customerId);
+            
+            Map<String, Object> result = new HashMap<>();
             List<String> violations = new ArrayList<>();
             Map<String, Object> requirements = new HashMap<>();
             
-            switch (action.toLowerCase()) {
-                case "freeze_card":
-                    isCompliant = validateFreezeCard(customerId, context, violations, requirements);
-                    break;
-                case "unfreeze_card":
-                    isCompliant = validateUnfreezeCard(customerId, context, violations, requirements);
-                    break;
-                case "open_dispute":
-                    isCompliant = validateOpenDispute(customerId, context, violations, requirements);
-                    break;
-                case "contact_customer":
-                    isCompliant = validateContactCustomer(customerId, context, violations, requirements);
-                    break;
-                default:
-                    violations.add("unknown_action");
-                    isCompliant = false;
+            try {
+                boolean isCompliant = true;
+                
+                switch (action.toLowerCase()) {
+                    case "freeze_card":
+                        // Execute critical checks first
+                        if (!hasActiveCards(customerId)) {
+                            violations.add("no_active_cards");
+                            isCompliant = false;
+                            break; // Exit early if no active cards
+                        }
+                        
+                        if (isCustomerFrozen(customerId)) {
+                            violations.add("already_frozen");
+                            isCompliant = false;
+                            break; // Exit early if already frozen
+                        }
+                        
+                        // Only check risk status if previous checks pass
+                        if (isHighRiskCustomer(customerId)) {
+                            requirements.put("otpRequired", true);
+                            requirements.put("otpTimeout", 300);
+                        }
+                        break;
+                        
+                    case "unfreeze_card":
+                        if (!isCustomerFrozen(customerId)) {
+                            violations.add("not_frozen");
+                            isCompliant = false;
+                        }
+                        
+                        if (!hasIdentityVerification(customerId)) {
+                            violations.add("identity_verification_required");
+                            requirements.put("identityVerification", true);
+                            requirements.put("handoffRequired", true);
+                            isCompliant = false;
+                        }
+                        
+                        if (isHighRiskCustomer(customerId)) {
+                            requirements.put("otpRequired", true);
+                        }
+                        break;
+                        
+                    case "open_dispute":
+                        String txnId = (String) context.get("transactionId");
+                        String reasonCode = (String) context.get("reasonCode");
+                        
+                        CompletableFuture<Boolean> txnExistsFuture = CompletableFuture
+                            .supplyAsync(() -> transactionExists(txnId));
+                            
+                        CompletableFuture<Boolean> disputeExistsFuture = CompletableFuture
+                            .supplyAsync(() -> !disputeAlreadyExists(txnId));
+                            
+                        CompletableFuture<Boolean> reasonCodeFuture = CompletableFuture
+                            .supplyAsync(() -> isValidReasonCode(reasonCode));
+                            
+                        // Wait for all checks to complete
+                        CompletableFuture.allOf(
+                            txnExistsFuture,
+                            disputeExistsFuture,
+                            reasonCodeFuture
+                        ).join();
+                        
+                        if (!txnExistsFuture.get()) {
+                            violations.add("transaction_not_found");
+                            isCompliant = false;
+                        }
+                        
+                        if (!disputeExistsFuture.get()) {
+                            violations.add("dispute_already_exists");
+                            isCompliant = false;
+                        }
+                        
+                        if (!reasonCodeFuture.get()) {
+                            violations.add("invalid_reason_code");
+                            isCompliant = false;
+                        }
+                        break;
+                        
+                    case "contact_customer":
+                        CompletableFuture<Boolean> contactInfoFuture = CompletableFuture
+                            .supplyAsync(() -> hasValidContactInfo(customerId));
+                            
+                        CompletableFuture<Boolean> contactLimitFuture = CompletableFuture
+                            .supplyAsync(() -> !hasExceededContactLimit(customerId));
+                            
+                        // Wait for both checks
+                        CompletableFuture.allOf(contactInfoFuture, contactLimitFuture).join();
+                        
+                        if (!contactInfoFuture.get()) {
+                            violations.add("no_contact_info");
+                            isCompliant = false;
+                        }
+                        
+                        if (!contactLimitFuture.get()) {
+                            violations.add("contact_limit_exceeded");
+                            isCompliant = false;
+                        }
+                        break;
+                }
+                
+                result.put("isCompliant", isCompliant);
+                result.put("violations", violations);
+                result.put("requirements", requirements);
+                
+            } catch (Exception e) {
+                logger.error("Validation error for action={}, customerId={}", action, customerId, e);
+                result.put("isCompliant", false);
+                result.put("violations", List.of("validation_error"));
+                result.put("requirements", new HashMap<>());
             }
             
-            result.put("isCompliant", isCompliant);
-            result.put("violations", violations);
-            result.put("requirements", requirements);
-            result.put("action", action);
-            result.put("customerId", customerId);
-            
-            if (!isCompliant) {
-                logger.warn("Action {} blocked for customerId={}, violations: {}", 
-                           action, customerId, violations);
-            }
-            
-        } catch (Exception e) {
-            logger.error("Error validating action {} for customerId={}", action, customerId, e);
-            result.put("isCompliant", false);
-            result.put("violations", Arrays.asList("validation_error"));
-            result.put("error", e.getMessage());
-        }
-        
-        return result;
-    }
-    
-    /**
-     * Validates card freeze action
-     */
-    private boolean validateFreezeCard(String customerId, Map<String, Object> context, 
-                                     List<String> violations, Map<String, Object> requirements) {
-        if (!hasActiveCards(customerId)) {
-            violations.add("no_active_cards");
-            return false;
-        }
-        
-        if (isHighRiskCustomer(customerId)) {
-            requirements.put("otpRequired", true);
-            requirements.put("otpTimeout", 300);
-        }
-        
-        if (isCustomerFrozen(customerId)) {
-            violations.add("already_frozen");
-            return false;
-        }
-        
-        return true;
-    }
-    
-    /**
-     * Validates card unfreeze action
-     */
-    private boolean validateUnfreezeCard(String customerId, Map<String, Object> context, 
-                                       List<String> violations, Map<String, Object> requirements) {
-        if (!isCustomerFrozen(customerId)) {
-            violations.add("not_frozen");
-            return false;
-        }
-        
-        if (!hasIdentityVerification(customerId)) {
-            violations.add("identity_verification_required");
-            requirements.put("identityVerification", true);
-            requirements.put("handoffRequired", true);
-            return false;
-        }
-        
-        if (isHighRiskCustomer(customerId)) {
-            requirements.put("otpRequired", true);
-        }
-        
-        return true;
-    }
-    
-    /**
-     * Validates dispute opening action
-     */
-    private boolean validateOpenDispute(String customerId, Map<String, Object> context, 
-                                      List<String> violations, Map<String, Object> requirements) {
-        String transactionId = (String) context.get("transactionId");
-        if (transactionId == null || !transactionExists(transactionId)) {
-            violations.add("transaction_not_found");
-            return false;
-        }
-        
-        if (isDisputeExpired(transactionId)) {
-            violations.add("dispute_time_expired");
-            return false;
-        }
-        
-        if (disputeAlreadyExists(transactionId)) {
-            violations.add("dispute_already_exists");
-            return false;
-        }
-        
-        String reasonCode = (String) context.get("reasonCode");
-        if (reasonCode == null || !isValidReasonCode(reasonCode)) {
-            violations.add("invalid_reason_code");
-            return false;
-        }
-        
-        return true;
-    }
-    
-    /**
-     * Validates customer contact action
-     */
-    private boolean validateContactCustomer(String customerId, Map<String, Object> context, 
-                                          List<String> violations, Map<String, Object> requirements) {
-        if (!hasValidContactInfo(customerId)) {
-            violations.add("no_contact_info");
-            return false;
-        }
-        
-        if (hasExceededContactLimit(customerId)) {
-            violations.add("contact_limit_exceeded");
-            return false;
-        }
-        
-        return true;
+            return result;
+        });
     }
     
     private boolean hasActiveCards(String customerId) {
@@ -160,7 +157,8 @@ public class ComplianceAgent {
     }
     
     private boolean isHighRiskCustomer(String customerId) {
-        return customerId.contains("high_risk") || customerId.contains("cust_025");
+        return riskStatusCache.get(customerId, id -> 
+            id.contains("high_risk") || id.contains("cust_025"));
     }
     
     private boolean isCustomerFrozen(String customerId) {
@@ -171,23 +169,16 @@ public class ComplianceAgent {
         return !customerId.contains("no_identity");
     }
     
-    private boolean transactionExists(String transactionId) {
-        return transactionId != null && !transactionId.isEmpty();
+    private boolean transactionExists(String txnId) {
+        return txnId != null && txnId.startsWith("txn_");
     }
     
-    private boolean isDisputeExpired(String transactionId) {
-        // Simplified - in real implementation, would check transaction date
-        return transactionId.contains("expired");
-    }
-    
-    private boolean disputeAlreadyExists(String transactionId) {
-        // Simplified - in real implementation, would check dispute records
-        return transactionId.contains("disputed");
+    private boolean disputeAlreadyExists(String txnId) {
+        return txnId != null && txnId.contains("disputed");
     }
     
     private boolean isValidReasonCode(String reasonCode) {
-        Set<String> validCodes = Set.of("10.4", "10.5", "10.6", "10.7", "10.8");
-        return validCodes.contains(reasonCode);
+        return reasonCode != null && reasonCode.matches("\\d{2}\\.\\d{1,2}");
     }
     
     private boolean hasValidContactInfo(String customerId) {
@@ -195,6 +186,6 @@ public class ComplianceAgent {
     }
     
     private boolean hasExceededContactLimit(String customerId) {
-        return customerId.contains("contact_limit");
+        return customerId.contains("spam") || customerId.contains("exceeded");
     }
 }

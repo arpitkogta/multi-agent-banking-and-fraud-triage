@@ -25,18 +25,12 @@ dependencies {
     // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    implementation 'org.springframework.boot:spring-boot-starter-webflux'
     
     // Database
     implementation 'org.postgresql:postgresql'
     implementation 'org.flywaydb:flyway-core'
-    
-    // Redis
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
     
     // JSON Processing
     implementation 'com.fasterxml.jackson.core:jackson-databind'
@@ -51,10 +45,10 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3'
     implementation 'commons-validator:commons-validator:1.7'
     implementation 'com.google.guava:guava:32.1.3-jre'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
     testImplementation 'com.h2database:h2'

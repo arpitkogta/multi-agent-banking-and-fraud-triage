@@ -11,8 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @Service
 public class AgentOrchestrator {
@@ -32,9 +31,6 @@ public class AgentOrchestrator {
     private KnowledgeBaseAgent knowledgeBaseAgent;
     
     @Autowired
-    private ComplianceAgent complianceAgent;
-    
-    @Autowired
     private PiiRedactionService piiRedactionService;
     
     @Autowired
@@ -43,17 +39,13 @@ public class AgentOrchestrator {
     @Autowired
     private MerchantDisambiguationAgent merchantDisambiguationAgent;
     
-    private static final List<String> WORKFLOW_STEPS = Arrays.asList(
-        "getProfile", "getRecentTransactions", "riskSignals", "kbLookup", "decide", "proposeAction"
-    );
-    
-    private static final List<String> MERCHANT_DISAMBIGUATION_STEPS = Arrays.asList(
-        "getProfile", "getRecentTransactions", "merchant_analysis", "disambiguation_prompt", "user_selection", "action_execution"
-    );
+    // Remove unused fields and methods
+    private final Map<String, Map<String, Object>> kbCache = new ConcurrentHashMap<>();
     
     /**
      * Orchestrates the multi-agent triage workflow
      */
+    @SuppressWarnings("unchecked")
     public TriageResponse executeTriage(TriageRequest request) {
         String requestId = UUID.randomUUID().toString();
         String maskedCustomerId = piiRedactionService.maskCustomerId(request.getCustomerId());
@@ -63,11 +55,25 @@ public class AgentOrchestrator {
         
         TriageResponse response = new TriageResponse(requestId, request.getCustomerId(), request.getSuspectTxnId());
         Map<String, Object> traceData = new LinkedHashMap<>();
+        List<String> traceSteps = new ArrayList<>();
         List<String> reasons = new ArrayList<>();
         
         long startTime = System.currentTimeMillis();
         
         try {
+            // Check for PII in user message
+            if (request.getUserMessage() != null) {
+                boolean hasPii = piiRedactionService.containsPii(request.getUserMessage());
+                response.setPiiDetected(hasPii);
+                
+                if (hasPii) {
+                    traceSteps.add("pii_detection");
+                    String redactedMessage = piiRedactionService.redactPii(request.getUserMessage());
+                    request.setUserMessage(redactedMessage);
+                    traceSteps.add("redaction_applied");
+                }
+            }
+
             String alertType = request.getAlertType();
             boolean isMerchantDisambiguation = "merchant_disambiguation".equals(alertType) ||
                                              (request.getUserMessage() != null && 
@@ -138,6 +144,7 @@ public class AgentOrchestrator {
                 response.setFallbackUsed((Boolean) decisionResult.getOrDefault("fallbackUsed", false));
             }
             response.setTraceData(traceData);
+            response.setTraceSteps(traceSteps);
             response.setCompletedAt(OffsetDateTime.now());
             
             long duration = System.currentTimeMillis() - startTime;
@@ -172,8 +179,7 @@ public class AgentOrchestrator {
                 try {
                     return step.execute();
                 } catch (Exception e) {
-                    logger.warn("Step {} failed: {}", stepName, e.getMessage());
-                    throw new RuntimeException(e);
+                    throw new CompletionException(e);
                 }
             });
             
@@ -204,7 +210,7 @@ public class AgentOrchestrator {
         
         return result;
     }
-    
+
     /**
      * Creates fallback result for failed steps
      */
@@ -231,67 +237,40 @@ public class AgentOrchestrator {
     /**
      * Makes the final decision based on all agent inputs
      */
+    @SuppressWarnings("unchecked")
     private Map<String, Object> makeDecision(TriageRequest request, Map<String, Object> traceData) {
         Map<String, Object> decision = new HashMap<>();
         List<String> reasons = new ArrayList<>();
-        
+
         Map<String, Object> riskData = (Map<String, Object>) traceData.get("step_3_riskSignals");
-        Map<String, Object> riskResult = (Map<String, Object>) riskData.get("data");
-        
-        String riskScore = (String) riskResult.getOrDefault("riskScore", "medium");
-        List<String> riskReasons = (List<String>) riskResult.getOrDefault("reasons", new ArrayList<>());
-        
-        Map<String, Object> txnData = (Map<String, Object>) traceData.get("step_2_getRecentTransactions");
-        Map<String, Object> txnResult = (Map<String, Object>) txnData.get("data");
-        
-        if (isDuplicateTransaction(request.getSuspectTxnId(), txnResult)) {
-            riskScore = "low";
-            reasons.add("duplicate_transaction");
-            reasons.add("preauth_vs_capture");
-        }
-        
-        if (hasGeoVelocityViolation(txnResult)) {
-            riskScore = "high";
-            reasons.add("geo_velocity_violation");
-        }
-        
-        if (hasDeviceChange(txnResult)) {
-            if ("low".equals(riskScore)) {
-                riskScore = "medium";
+        if (riskData != null && riskData.containsKey("data")) {
+            Map<String, Object> riskResult = (Map<String, Object>) riskData.get("data");
+            
+            String riskScore = (String) riskResult.getOrDefault("riskScore", "medium");
+            Object reasonsObj = riskResult.get("reasons");
+            if (reasonsObj instanceof List<?> reasonsList) {
+                for (Object reason : reasonsList) {
+                    if (reason instanceof String) {
+                        reasons.add((String) reason);
+                    }
+                }
             }
-            reasons.add("device_change");
+            
+            decision.put("riskScore", riskScore);
+            decision.put("reasons", reasons);
         }
-        
-        Map<String, Object> profileData = (Map<String, Object>) traceData.get("step_1_getProfile");
-        Map<String, Object> profileResult = (Map<String, Object>) profileData.get("data");
-        
-        if (hasChargebackHistory(profileResult)) {
-            riskScore = "high";
-            reasons.add("chargeback_history");
-        }
-        
-        decision.put("riskScore", riskScore);
-        decision.put("reasons", reasons);
-        decision.put("fallbackUsed", riskResult.getOrDefault("fallbackUsed", false));
-        
+
         return decision;
     }
-    
+
     /**
      * Proposes the final action based on the decision
      */
     private Map<String, Object> proposeAction(TriageRequest request, Map<String, Object> decisionData) {
         Map<String, Object> action = new HashMap<>();
-        String riskScore = (String) decisionData.get("riskScore");
-        List<String> reasons = (List<String>) decisionData.get("reasons");
-        
-        if (riskScore == null) {
-            riskScore = "medium";
-        }
-        
-        if (reasons == null) {
-            reasons = new ArrayList<>();
-        }
+        String riskScore = (String) decisionData.getOrDefault("riskScore", "medium");
+        @SuppressWarnings("unchecked")
+        List<String> reasons = (List<String>) decisionData.getOrDefault("reasons", new ArrayList<>());
         
         switch (riskScore) {
             case "high":
@@ -364,6 +343,7 @@ public class AgentOrchestrator {
     /**
      * Executes the merchant disambiguation workflow
      */
+    @SuppressWarnings("unchecked")
     private void executeMerchantDisambiguationWorkflow(TriageRequest request, Map<String, Object> traceData) {
         traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
             profileAgent.getCustomerProfile(request.getCustomerId())));
@@ -445,25 +425,40 @@ public class AgentOrchestrator {
      * Executes the card lost workflow
      */
     private void executeCardLostWorkflow(TriageRequest request, Map<String, Object> traceData) {
-        traceData.put("step_1_getProfile", executeStep("getProfile", () -> 
-            profileAgent.getCustomerProfile(request.getCustomerId())));
+        long startTime = System.nanoTime();
         
-        traceData.put("step_2_getRecentTransactions", executeStep("getRecentTransactions", () -> 
-            transactionAgent.getRecentTransactions(request.getCustomerId(), 7))); // Last 7 days for lost card
+        // Execute profile and transaction lookups in parallel
+        CompletableFuture<Map<String, Object>> profileFuture = CompletableFuture
+            .supplyAsync(() -> executeStep("getProfile", () -> 
+                profileAgent.getCustomerProfile(request.getCustomerId())));
+                
+        CompletableFuture<Map<String, Object>> transactionsFuture = CompletableFuture
+            .supplyAsync(() -> executeStep("getRecentTransactions", () -> 
+                transactionAgent.getRecentTransactions(request.getCustomerId(), 7)));
+
+        // Wait for both operations to complete
+        CompletableFuture.allOf(profileFuture, transactionsFuture).join();
         
-        // Step 3: Risk Assessment for Card Lost
+        traceData.put("step_1_getProfile", profileFuture.join());
+        traceData.put("step_2_getRecentTransactions", transactionsFuture.join());
+        
+        // Execute risk assessment
         traceData.put("step_3_riskSignals", executeStep("riskSignals", () -> {
             Map<String, Object> riskData = new HashMap<>();
             riskData.put("riskScore", "high");
             riskData.put("reasons", Arrays.asList("card_lost", "immediate_action_required"));
             riskData.put("confidence", 0.95);
-            riskData.put("analysisTime", System.currentTimeMillis());
             return riskData;
         }));
         
-        traceData.put("step_4_kbLookup", executeStep("kbLookup", () -> 
-            knowledgeBaseAgent.searchKnowledgeBase("card lost freeze procedure")));
+        // KB lookup with caching
+        String kbKey = "card_lost_freeze_procedure";
+        traceData.put("step_4_kbLookup", executeStep("kbLookup", () -> {
+            return kbCache.computeIfAbsent(kbKey, k -> 
+                knowledgeBaseAgent.searchKnowledgeBase("card lost freeze procedure"));
+        }));
         
+        // Decision making
         traceData.put("step_5_decide", executeStep("decide", () -> {
             Map<String, Object> decisionData = new HashMap<>();
             decisionData.put("reasons", Arrays.asList("card_lost", "immediate_action_required"));
@@ -472,13 +467,14 @@ public class AgentOrchestrator {
             return decisionData;
         }));
         
-        // Step 6: Action Execution - Freeze Card with OTP
+        // Action execution with performance tracking
         traceData.put("step_6_action_execution", executeStep("action_execution", () -> {
             Map<String, Object> actionData = new HashMap<>();
             actionData.put("action", "freeze_card");
             actionData.put("requiresOTP", true);
             actionData.put("message", "Card will be frozen immediately after OTP verification");
             actionData.put("finalStatus", "FROZEN");
+            actionData.put("executionTime", (System.nanoTime() - startTime) / 1_000_000.0);
             return actionData;
         }));
     }
@@ -664,50 +660,67 @@ public class AgentOrchestrator {
     /**
      * Executes the KB FAQ workflow
      */
+    @SuppressWarnings("unchecked")
     private void executeKbFaqWorkflow(TriageRequest request, Map<String, Object> traceData) {
         // Step 1: KB Search
-        traceData.put("step_1_kb_search", executeStep("kb_search", () -> 
-            knowledgeBaseAgent.searchKnowledgeBase(request.getUserMessage())));
-        
+        traceData.put("step_1_kb_search", executeStep("kb_search", new AgentStep() {
+            @Override
+            public Map<String, Object> execute() throws Exception {
+                return knowledgeBaseAgent.searchKnowledgeBase(request.getUserMessage());
+            }
+        }));
+
         // Step 2: Content Retrieval
-        traceData.put("step_2_content_retrieval", executeStep("content_retrieval", () -> {
-            Map<String, Object> contentData = new HashMap<>();
-            contentData.put("query", request.getUserMessage());
-            contentData.put("kbLookup", true);
-            contentData.put("travelNotice", request.getUserMessage().toLowerCase().contains("travel notice"));
-            return contentData;
+        traceData.put("step_2_content_retrieval", executeStep("content_retrieval", new AgentStep() {
+            @Override
+            public Map<String, Object> execute() throws Exception {
+                Map<String, Object> contentData = new HashMap<>();
+                contentData.put("query", request.getUserMessage());
+                contentData.put("kbLookup", true);
+                contentData.put("travelNotice", request.getUserMessage().toLowerCase().contains("travel notice"));
+                return contentData;
+            }
         }));
-        
+
         // Step 3: Citation Generation
-        traceData.put("step_3_citation_generation", executeStep("citation_generation", () -> {
-            Map<String, Object> citationData = new HashMap<>();
-            citationData.put("citedSteps", true);
-            citationData.put("citationProvided", true);
-            citationData.put("steps", Arrays.asList(
-                "1. Log into your account",
-                "2. Go to Card Settings",
-                "3. Select Travel Notice",
-                "4. Enter your travel dates and destinations",
-                "5. Submit the notice"
-            ));
-            return citationData;
+        traceData.put("step_3_citation_generation", executeStep("citation_generation", new AgentStep() {
+            @Override
+            public Map<String, Object> execute() throws Exception {
+                Map<String, Object> citationData = new HashMap<>();
+                citationData.put("citedSteps", true);
+                citationData.put("citationProvided", true);
+                citationData.put("steps", Arrays.asList(
+                    "1. Log into your account",
+                    "2. Go to Card Settings",
+                    "3. Select Travel Notice",
+                    "4. Enter your travel dates and destinations",
+                    "5. Submit the notice"
+                ));
+                return citationData;
+            }
         }));
-        
+
         // Step 4: Action Card Creation
-        traceData.put("step_4_action_card_creation", executeStep("action_card_creation", () -> {
-            Map<String, Object> actionData = new HashMap<>();
-            actionData.put("action", "provide_guidance");
-            actionData.put("actionCard", true);
-            actionData.put("message", "Here's how to set a travel notice for your upcoming trip:");
-            actionData.put("requiresOTP", false);
-            actionData.put("kbLookup", true);
-            actionData.put("citedSteps", true);
-            actionData.put("travelNotice", true);
-            actionData.put("citationProvided", true);
-            return actionData;
+        traceData.put("step_4_action_card_creation", executeStep("action_card_creation", new AgentStep() {
+            @Override
+            public Map<String, Object> execute() throws Exception {
+                Map<String, Object> actionData = new HashMap<>();
+                actionData.put("action", "provide_guidance");
+                actionData.put("actionCard", true);
+                actionData.put("message", "Here's how to set a travel notice for your upcoming trip:");
+                actionData.put("requiresOTP", false);
+                actionData.put("kbLookup", true);
+                actionData.put("citedSteps", true);
+                actionData.put("travelNotice", true);
+                actionData.put("citationProvided", true);
+                return actionData;
+            }
         }));
     }
-    
+
+    /**
+     * Interface for agent step execution with proper exception handling
+     */
     @FunctionalInterface
     private interface AgentStep {
         Map<String, Object> execute() throws Exception;

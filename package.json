@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "axios": "^1.11.0"
+  },
+  "scripts": {
+    "eval": "node scripts/run-evals.js"
   }
 }

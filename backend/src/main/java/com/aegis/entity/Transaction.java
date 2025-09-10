@@ -8,6 +8,9 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "transactions")
+@org.hibernate.annotations.Cache(
+    usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_ONLY
+)
 public class Transaction {
     
     @Id
@@ -35,18 +38,23 @@ public class Transaction {
     private OffsetDateTime ts;
     
     @Column(name = "device_id")
+    @Basic(fetch = FetchType.LAZY)  // Lazy load optional fields
     private String deviceId;
     
     @Column(name = "geo_lat")
+    @Basic(fetch = FetchType.LAZY)
     private BigDecimal geoLat;
     
     @Column(name = "geo_lon")
+    @Basic(fetch = FetchType.LAZY)
     private BigDecimal geoLon;
     
     @Column(name = "geo_country")
+    @Basic(fetch = FetchType.LAZY)
     private String geoCountry;
     
     @Column(name = "geo_city")
+    @Basic(fetch = FetchType.LAZY)
     private String geoCity;
     
     @Column(nullable = false)
@@ -71,7 +79,7 @@ public class Transaction {
         this.ts = ts;
     }
     
-    // Getters and Setters
+    // Core field getters/setters
     public String getId() {
         return id;
     }
@@ -136,6 +144,7 @@ public class Transaction {
         this.ts = ts;
     }
     
+    // Optional field getters/setters with lazy loading
     public String getDeviceId() {
         return deviceId;
     }

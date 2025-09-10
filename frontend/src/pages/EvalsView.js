@@ -15,7 +15,6 @@ import {
   Paper,
   Chip,
   Alert,
-  CircularProgress,
   LinearProgress
 } from '@mui/material';
 import axios from 'axios';

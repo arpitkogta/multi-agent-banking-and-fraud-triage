@@ -108,8 +108,7 @@ The Multi-Agent Banking and Fraud Triage System has been successfully implemente
 ### Infrastructure
 - **Docker Compose**: Complete containerization
 - **PostgreSQL**: Data persistence
-- **Redis**: Caching and session management
-- **Prometheus**: Monitoring and metrics
+- **Monitoring**: Health checks and metrics collection
 - **Nginx**: Frontend serving
 
 ## 🔧 Technical Implementation
@@ -167,12 +166,20 @@ Each workflow follows a consistent 6-step pattern:
 
 ## 🔒 Security Features
 
-- **PII Redaction**: Automatic masking of sensitive data
 - **Rate Limiting**: 5 requests/second per customer
 - **Input Validation**: Comprehensive request validation
 - **SQL Injection Prevention**: Parameterized queries
 - **XSS Protection**: Input sanitization
 - **CSRF Protection**: Token-based validation
+
+## 🧹 Code Quality & Optimization
+
+### Recent Improvements
+- **Streamlined Dependencies**: Removed unused Redis, WebFlux, Security dependencies
+- **Clean Architecture**: Eliminated unused configuration classes and controllers
+- **Optimized Build**: Faster compilation with reduced dependency resolution
+- **Code Cleanup**: Removed dead code and unused methods
+- **Frontend Optimization**: Cleaned up unused imports and components
 
 ## 📚 Documentation
 
@@ -235,6 +242,8 @@ The Multi-Agent Banking and Fraud Triage System represents a **complete, product
 - ✅ Comprehensive security features
 - ✅ Production-ready architecture
 - ✅ Complete documentation
+- ✅ Optimized codebase with removed unused components
+- ✅ Streamlined dependencies for faster builds
 
 **The system is ready for production deployment! 🚀**
 

@@ -1,11 +1,11 @@
 {
-  "timestamp": "2025-09-09T06:44:57.583Z",
+  "timestamp": "2025-09-10T07:05:11.063Z",
   "metrics": {
     "totalTests": 12,
     "passedTests": 12,
     "failedTests": 0,
     "fallbackRate": 2,
-    "avgLatency": 196.41666666666666,
+    "avgLatency": 142.25,
     "policyDenials": {},
     "confusionMatrix": {
       "low": 2,
@@ -42,7 +42,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 101,
+      "latency": 104,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -75,7 +75,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 42,
+      "latency": 35,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -108,7 +108,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 50,
+      "latency": 55,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -141,7 +141,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 499,
+      "latency": 33,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -172,7 +172,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 43,
+      "latency": 57,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -206,7 +206,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 92,
+      "latency": 34,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -234,12 +234,12 @@
         "recommendedAction": "contact_customer",
         "reasons": [],
         "requiresOTP": false,
-        "fallbackUsed": true
+        "fallbackUsed": false
       },
       "passed": true,
-      "latency": 1074,
+      "latency": 45,
       "error": null,
-      "fallbackUsed": true,
+      "fallbackUsed": false,
       "policyDenied": false
     },
     {
@@ -262,12 +262,12 @@
         "recommendedAction": "contact_customer",
         "reasons": [],
         "requiresOTP": false,
-        "fallbackUsed": false
+        "fallbackUsed": true
       },
       "passed": true,
-      "latency": 162,
+      "latency": 1044,
       "error": null,
-      "fallbackUsed": false,
+      "fallbackUsed": true,
       "policyDenied": false
     },
     {
@@ -295,7 +295,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 118,
+      "latency": 29,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -324,7 +324,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 37,
+      "latency": 85,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -356,7 +356,7 @@
         "fallbackUsed": false
       },
       "passed": true,
-      "latency": 36,
+      "latency": 43,
       "error": null,
       "fallbackUsed": false,
       "policyDenied": false
@@ -390,7 +390,7 @@
         "fallbackUsed": true
       },
       "passed": true,
-      "latency": 103,
+      "latency": 143,
       "error": null,
       "fallbackUsed": true,
       "policyDenied": false
@@ -399,6 +399,6 @@
   "summary": {
     "successRate": 100,
     "fallbackRate": 16.666666666666664,
-    "avgLatency": 196.41666666666666
+    "avgLatency": 142.25
   }
 }

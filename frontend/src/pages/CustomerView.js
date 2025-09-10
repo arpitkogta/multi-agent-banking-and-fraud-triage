@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box,
@@ -6,57 +6,31 @@ import {
   CardContent,
   Typography,
   Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Chip,
-  Alert,
-  CircularProgress
+  Alert
 } from '@mui/material';
-import axios from 'axios';
+import { useCustomerProfile, useRecentTransactions } from '../hooks/api';
+import { LoadingState } from '../components/LoadingState';
+import { DataTable } from '../components/DataTable';
+
+const ROW_HEIGHT = 52;
+const TABLE_HEIGHT = 600;
 
 function CustomerView() {
   const { id } = useParams();
-  const [customer, setCustomer] = useState(null);
-  const [transactions, setTransactions] = useState([]);
-  const [insights, setInsights] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (id) {
-      loadCustomerData();
-    }
-  }, [id]);
-
-  const loadCustomerData = async () => {
-    try {
-      setLoading(true);
-      
-      const txnResponse = await axios.get(`/api/customer/${id}/transactions?last=90`);
-      setTransactions(txnResponse.data.transactions || []);
-
-      const insightsResponse = await axios.get(`/api/customer/${id}/insights/summary`);
-      setInsights(insightsResponse.data);
-
-      setCustomer({
-        id: id,
-        name: `Customer ${id}`,
-        emailMasked: `c***@e***.com`,
-        status: 'active'
-      });
-
-    } catch (err) {
-      setError('Failed to load customer data');
-      console.error('Customer view error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  // Use React Query for data fetching with caching
+  const { 
+    data: customer,
+    error: customerError,
+    isLoading: customerLoading 
+  } = useCustomerProfile(id);
+  
+  const {
+    data: transactionData,
+    error: transactionError,
+    isLoading: transactionLoading
+  } = useRecentTransactions(id, 90);
 
   const formatAmount = (amount) => {
     return `₹${(Math.abs(amount) / 100).toLocaleString()}`;
@@ -66,26 +40,47 @@ function CustomerView() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  if (loading) {
+  // Transaction table columns configuration
+  const columns = [
+    { field: 'ts', headerName: 'Date', width: 120, 
+      renderCell: (row) => formatDate(row.ts) },
+    { field: 'merchant', headerName: 'Merchant', width: 200 },
+    { field: 'amount', headerName: 'Amount', width: 120,
+      renderCell: (row) => formatAmount(row.amount) },
+    { field: 'mcc', headerName: 'MCC', width: 100 },
+    { field: 'status', headerName: 'Status', width: 120,
+      renderCell: (row) => (
+        <Chip 
+          label={row.status} 
+          color={row.status === 'captured' ? 'success' : 'warning'}
+          size="small"
+        />
+      )
+    },
+    { field: 'location', headerName: 'Location', width: 150,
+      renderCell: (row) => row.geo?.city || 'Unknown' }
+  ];
+
+  if (customerLoading || transactionLoading) {
+    return <LoadingState message="Loading customer data..." />;
+  }
+
+  const error = customerError || transactionError;
+  if (error) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Loading customer data...</Typography>
-      </Box>
+      <Alert severity="error" sx={{ m: 2 }}>
+        {error.message || 'Failed to load customer data'}
+      </Alert>
     );
   }
+
+  const transactions = transactionData?.transactions || [];
 
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
         Customer View: {customer?.name || id}
       </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
 
       {/* Customer Info */}
       {customer && (
@@ -111,7 +106,7 @@ function CustomerView() {
       )}
 
       {/* Insights Summary */}
-      {insights && (
+      {transactionData?.insights && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
@@ -121,25 +116,25 @@ function CustomerView() {
               <Grid item xs={12} sm={3}>
                 <Typography color="textSecondary">Total Spend (90d)</Typography>
                 <Typography variant="h6">
-                  {formatAmount(insights.totalSpend || 0)}
+                  {formatAmount(transactionData.insights.totalSpend || 0)}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={3}>
                 <Typography color="textSecondary">Transactions</Typography>
                 <Typography variant="h6">
-                  {insights.transactionCount || 0}
+                  {transactions.length || 0}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={3}>
                 <Typography color="textSecondary">Cities Visited</Typography>
                 <Typography variant="h6">
-                  {insights.riskIndicators?.citiesVisited || 0}
+                  {transactionData.insights?.citiesVisited || 0}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={3}>
                 <Typography color="textSecondary">Devices Used</Typography>
                 <Typography variant="h6">
-                  {insights.riskIndicators?.devicesUsed || 0}
+                  {transactionData.insights?.devicesUsed || 0}
                 </Typography>
               </Grid>
             </Grid>
@@ -147,47 +142,21 @@ function CustomerView() {
         </Card>
       )}
 
-      {/* Transactions Timeline */}
+      {/* Transactions Timeline with virtualization */}
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
             Recent Transactions (Last 90 Days)
           </Typography>
           
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Merchant</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>MCC</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Location</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {transactions.map((txn) => (
-                  <TableRow key={txn.id}>
-                    <TableCell>{formatDate(txn.ts)}</TableCell>
-                    <TableCell>{txn.merchant}</TableCell>
-                    <TableCell>{formatAmount(txn.amount)}</TableCell>
-                    <TableCell>{txn.mcc}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={txn.status} 
-                        color={txn.status === 'captured' ? 'success' : 'warning'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {txn.geo?.city || 'Unknown'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <DataTable
+            columns={columns}
+            rows={transactions}
+            loading={transactionLoading}
+            error={transactionError?.message}
+            rowHeight={ROW_HEIGHT}
+            containerHeight={TABLE_HEIGHT}
+          />
         </CardContent>
       </Card>
     </Box>

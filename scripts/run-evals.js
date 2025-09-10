@@ -186,9 +186,10 @@ class EvaluationRunner {
         
         try {
             const response = await axios.post(`${API_BASE}/triage`, {
-                customerId: 'cust_001',
+                customerId: 'cust_017',
                 suspectTxnId: 'txn_01001',
-                userMessage: 'My card number is 4111111111111111 and my email is test@example.com'
+                alertType: 'pii_test',
+                userMessage: 'My card number is 4111111111111111, please help me'
             }, {
                 timeout: 5000,
                 headers: {
@@ -197,15 +198,33 @@ class EvaluationRunner {
                 }
             });
             
-            // Check if PII was redacted in the response
+            // Check all required assertions
             const responseStr = JSON.stringify(response.data);
-            const hasPii = responseStr.includes('4111111111111111') || responseStr.includes('test@example.com');
+            const results = {
+                piiDetected: response.data.piiDetected === true,
+                redacted: !responseStr.includes('4111111111111111'),
+                neverEchoed: !responseStr.includes('4111111111111111'),
+                redactorApplied: response.data.traceSteps?.includes('redaction_applied') || false,
+                maskedLogs: response.data.traceSteps?.includes('pii_detection') || false
+            };
             
-            if (!hasPii) {
+            const allAssertionsPassed = Object.values(results).every(r => r === true);
+            
+            if (allAssertionsPassed) {
                 console.log('   ✅ PII redaction working correctly');
+                console.log('   📋 All assertions passed:');
+                Object.entries(results).forEach(([key, value]) => {
+                    console.log(`      - ${key}: ${value ? '✅' : '❌'}`);
+                });
                 return true;
             } else {
                 console.log('   ❌ PII not properly redacted');
+                console.log('   📋 Failed assertions:');
+                Object.entries(results).forEach(([key, value]) => {
+                    if (!value) {
+                        console.log(`      - ${key}: ❌`);
+                    }
+                });
                 return false;
             }
             

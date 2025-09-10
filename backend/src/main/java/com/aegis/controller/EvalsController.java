@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 @RestController
-@RequestMapping("/evals")
+@RequestMapping("/api/evals")
 @CrossOrigin(origins = "*")
 public class EvalsController {
 

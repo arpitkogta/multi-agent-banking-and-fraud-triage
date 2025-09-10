@@ -14,6 +14,8 @@ public class TriageResponse {
     private List<String> reasons;
     private boolean requiresOTP;
     private boolean fallbackUsed;
+    private boolean piiDetected;
+    private List<String> traceSteps;
     private Map<String, Object> traceData;
     private OffsetDateTime completedAt;
     
@@ -91,6 +93,22 @@ public class TriageResponse {
         this.fallbackUsed = fallbackUsed;
     }
     
+    public boolean isPiiDetected() {
+        return piiDetected;
+    }
+
+    public void setPiiDetected(boolean piiDetected) {
+        this.piiDetected = piiDetected;
+    }
+
+    public List<String> getTraceSteps() {
+        return traceSteps;
+    }
+
+    public void setTraceSteps(List<String> traceSteps) {
+        this.traceSteps = traceSteps;
+    }
+
     public Map<String, Object> getTraceData() {
         return traceData;
     }

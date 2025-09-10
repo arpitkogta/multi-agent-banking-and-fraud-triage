@@ -24,6 +24,7 @@ import java.util.Map;
 public class CustomerController {
     
     private static final Logger logger = LoggerFactory.getLogger(CustomerController.class);
+    private static final int MAX_PAGE_SIZE = 100;  // Limit max page size
     
     @Autowired
     private TransactionRepository transactionRepository;
@@ -50,33 +51,37 @@ public class CustomerController {
         logger.info("Getting transactions for customerId={}, page={}, size={}", maskedCustomerId, page, size);
         
         try {
-            Pageable pageable = PageRequest.of(page, size, Sort.by("ts").descending());
+            // Enforce max page size for performance
+            int effectiveSize = Math.min(size, MAX_PAGE_SIZE);
+            Pageable pageable = PageRequest.of(page, effectiveSize, Sort.by("ts").descending());
+            
             Page<Transaction> transactions;
             
-            // Determine date range
+            // Determine date range using minimal object creation
             OffsetDateTime fromDate = from;
             OffsetDateTime toDate = to;
             
             if (lastDays != null) {
-                fromDate = OffsetDateTime.now().minusDays(lastDays);
+                // For "last N days" queries, use pre-calculated timestamp
+                fromDate = OffsetDateTime.now().minusDays(lastDays)
+                    .withHour(0).withMinute(0).withSecond(0).withNano(0); // Start of day
                 toDate = OffsetDateTime.now();
             } else if (fromDate == null) {
-                fromDate = OffsetDateTime.now().minusDays(90); // Default to 90 days
+                // Default to last 90 days if no range specified
+                fromDate = OffsetDateTime.now().minusDays(90)
+                    .withHour(0).withMinute(0).withSecond(0).withNano(0); // Start of day
             }
             
             if (toDate == null) {
                 toDate = OffsetDateTime.now();
             }
-            
-            // Query transactions
-            if (fromDate != null && toDate != null) {
-                transactions = transactionRepository.findByCustomerIdAndTsBetweenOrderByTsDesc(
-                    id, fromDate, toDate, pageable);
-            } else {
-                transactions = transactionRepository.findByCustomerIdOrderByTsDesc(id, pageable);
-            }
-            
-            Map<String, Object> response = new HashMap<>();
+
+            // Execute optimized query using partitioned index
+            transactions = transactionRepository.findByCustomerIdAndTsBetweenOrderByTsDesc(
+                id, fromDate, toDate, pageable);
+
+            // Build response with minimal object creation
+            Map<String, Object> response = new HashMap<>(8);
             response.put("transactions", transactions.getContent());
             response.put("page", transactions.getNumber());
             response.put("size", transactions.getSize());
@@ -93,7 +98,8 @@ public class CustomerController {
             
         } catch (Exception e) {
             logger.error("Error retrieving transactions for customerId={}", maskedCustomerId, e);
-            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to retrieve transactions"));
+            return ResponseEntity.internalServerError()
+                .body(Map.of("error", "Failed to retrieve transactions"));
         }
     }
     

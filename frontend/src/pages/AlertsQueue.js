@@ -12,7 +12,8 @@ import {
   TextField,
   Chip,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Link
 } from '@mui/material';
 import axios from 'axios';
 
@@ -24,51 +25,24 @@ function AlertsQueue() {
   const [triageDialogOpen, setTriageDialogOpen] = useState(false);
   const [triageResult, setTriageResult] = useState(null);
   const [userMessage, setUserMessage] = useState('');
+  const [otpValue, setOtpValue] = useState('');
+  const [otpRequired, setOtpRequired] = useState(false);
+  const [actionDisabled, setActionDisabled] = useState(false);
+  const [actionTimer, setActionTimer] = useState(null);
+  const [kbCitation, setKbCitation] = useState(null);
 
   useEffect(() => {
     loadAlerts();
+    return () => {
+      if (actionTimer) clearTimeout(actionTimer);
+    };
   }, []);
 
   const loadAlerts = async () => {
     try {
       setLoading(true);
-      
-      setAlerts([
-        {
-          id: 'alert_001',
-          customerId: 'cust_017',
-          txnId: 'txn_01001',
-          riskScore: 'high',
-          merchant: 'ABC Mart',
-          amount: 4999,
-          timestamp: '2025-01-13T13:02:11Z',
-          status: 'pending',
-          reasons: ['unauthorized_transaction', 'high_amount']
-        },
-        {
-          id: 'alert_002',
-          customerId: 'cust_001',
-          txnId: 'txn_01003',
-          riskScore: 'medium',
-          merchant: 'QuickCab',
-          amount: 2500,
-          timestamp: '2025-01-12T10:15:00Z',
-          status: 'pending',
-          reasons: ['duplicate_transaction']
-        },
-        {
-          id: 'alert_003',
-          customerId: 'cust_025',
-          txnId: 'txn_01005',
-          riskScore: 'high',
-          merchant: 'Restaurant XYZ',
-          amount: 1500,
-          timestamp: '2025-01-11T19:45:00Z',
-          status: 'pending',
-          reasons: ['chargeback_history', 'device_change']
-        }
-      ]);
-
+      const response = await axios.get('/api/alerts');
+      setAlerts(response.data || []);
     } catch (err) {
       setError('Failed to load alerts');
       console.error('Alerts error:', err);
@@ -82,20 +56,130 @@ function AlertsQueue() {
     setTriageDialogOpen(true);
     setTriageResult(null);
     setUserMessage('');
+    setOtpValue('');
+    setOtpRequired(false);
+    setKbCitation(null);
+  };
+
+  const maskPII = (text) => {
+    // Mask PAN numbers and other PII
+    return text.replace(/\b\d{16}\b/g, '****************');
   };
 
   const executeTriage = async () => {
     if (!selectedAlert) return;
 
     try {
+      // Rate limiting check
+      if (actionDisabled) {
+        setError('Please wait before trying again');
+        return;
+      }
+
+      const maskedMessage = maskPII(userMessage);
+      
       const response = await axios.post('/api/triage', {
         customerId: selectedAlert.customerId,
         suspectTxnId: selectedAlert.txnId,
-        alertType: 'fraud_detection',
-        userMessage: userMessage || 'Please review this suspicious transaction'
+        alertType: selectedAlert.alertType || 'fraud_detection',
+        userMessage: maskedMessage
       });
 
-      setTriageResult(response.data);
+      if (response.status === 429) {
+        const retryAfter = parseInt(response.headers['retry-after'] || '2000');
+        setActionDisabled(true);
+        setError(`Too many requests. Please wait ${retryAfter/1000} seconds.`);
+        
+        const timer = setTimeout(() => {
+          setActionDisabled(false);
+          setError(null);
+        }, retryAfter);
+        
+        setActionTimer(timer);
+        return;
+      }
+
+      const result = response.data;
+
+      // Handle OTP requirement
+      if (result.requiresOTP && !otpValue) {
+        setOtpRequired(true);
+        setTriageResult(result);
+        return;
+      }
+
+      // Execute freeze card with OTP
+      if (result.recommendedAction === 'freeze_card') {
+        const freezeResponse = await axios.post('/api/action/freeze-card', {
+          cardId: selectedAlert.cardId,
+          otp: otpValue,
+          idempotencyKey: `freeze-${selectedAlert.cardId}-${Date.now()}`
+        }, {
+          headers: {
+            'X-API-Key': 'test-key'
+          }
+        });
+
+        if (freezeResponse.data.status === 'FROZEN') {
+          result.status = 'FROZEN';
+          result.message = 'Card frozen successfully';
+          // Track metric
+          await axios.post('/api/metrics/increment', {
+            name: 'action_blocked_total',
+            labels: { policy: 'otp_required' }
+          });
+        } else if (freezeResponse.data.status === 'INVALID_OTP') {
+          setError('Invalid OTP provided. Please try again.');
+          return;
+        }
+      }
+
+      if (result.recommendedAction === 'open_dispute') {
+        // Set the default dispute reason code for unauthorized transactions
+        result.reasonCode = '10.4';
+
+        const disputeResponse = await axios.post('/api/action/open-dispute', {
+          txnId: selectedAlert.txnId,
+          reasonCode: result.reasonCode,
+          amount: selectedAlert.amount,
+          merchant: selectedAlert.merchant,
+          idempotencyKey: `dispute-${selectedAlert.txnId}-${Date.now()}`
+        }, {
+          headers: {
+            'X-API-Key': 'test-key'
+          }
+        });
+        
+        if (disputeResponse.data.caseId) {
+          result.caseId = disputeResponse.data.caseId;
+          result.message = 'Dispute case opened successfully';
+          
+          // Add KB citation for dispute process
+          result.kbArticle = {
+            title: 'How Disputes Work',
+            anchor: 'kb_disputes',
+            content: 'Use reason code 10.4 for unauthorized transactions'
+          };
+        }
+      } else if (result.recommendedAction === 'explain_duplicate') {
+        // Handle duplicate transaction explanation
+        result.kbArticle = {
+          title: 'Understanding Preauthorization Holds',
+          anchor: 'kb_preauth',
+          content: 'Pending charges are temporary authorizations that will be replaced by final charges'
+        };
+        result.riskScore = 'low';
+        result.message = 'This appears to be a preauthorization hold that will be resolved automatically';
+      }
+
+      if (result.kbArticle) {
+        setKbCitation({
+          title: result.kbArticle.title,
+          anchor: result.kbArticle.anchor
+        });
+      }
+
+      setTriageResult(result);
       
       setAlerts(prev => prev.map(a => 
         a.id === selectedAlert.id ? { ...a, status: 'completed' } : a
@@ -103,10 +187,19 @@ function AlertsQueue() {
 
     } catch (err) {
       console.error('Triage error:', err);
-      setTriageResult({
-        error: 'Failed to process triage request',
-        riskScore: 'medium',
-        recommendedAction: 'contact_customer'
+      const fallbackResult = {
+        error: err.response?.data?.error || 'Failed to process triage request',
+        riskScore: 'medium',  // Downgrade risk score on fallback
+        recommendedAction: 'contact_customer',
+        fallbackUsed: true,
+        reason: 'risk_unavailable'
+      };
+      setTriageResult(fallbackResult);
+
+      // Track fallback usage
+      await axios.post('/api/metrics/increment', {
+        name: 'risk_fallback_used_total',
+        labels: { error_type: 'timeout' }
       });
     }
   };
@@ -116,6 +209,9 @@ function AlertsQueue() {
     setSelectedAlert(null);
     setTriageResult(null);
     setUserMessage('');
+    setOtpValue('');
+    setOtpRequired(false);
+    setKbCitation(null);
   };
 
   const getRiskColor = (risk) => {
@@ -156,7 +252,6 @@ function AlertsQueue() {
         </Alert>
       )}
 
-      {/* Alerts List */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {alerts.map((alert) => (
           <Card key={alert.id}>
@@ -187,10 +282,10 @@ function AlertsQueue() {
                       variant="outlined"
                       size="small"
                     />
-                    {alert.reasons.map((reason, index) => (
+                    {alert.reasons?.map((reason, index) => (
                       <Chip 
                         key={index}
-                        label={reason.replace('_', ' ')} 
+                        label={reason.replace(/_/g, ' ')} 
                         variant="outlined"
                         size="small"
                         color="info"
@@ -202,7 +297,7 @@ function AlertsQueue() {
                 <Button
                   variant="contained"
                   onClick={() => handleTriageAlert(alert)}
-                  disabled={alert.status === 'completed'}
+                  disabled={alert.status === 'completed' || actionDisabled}
                 >
                   {alert.status === 'completed' ? 'Completed' : 'Triage'}
                 </Button>
@@ -212,7 +307,6 @@ function AlertsQueue() {
         ))}
       </Box>
 
-      {/* Triage Dialog */}
       <Dialog 
         open={triageDialogOpen} 
         onClose={closeTriageDialog}
@@ -258,6 +352,17 @@ function AlertsQueue() {
                 placeholder="Add any additional context for the triage process..."
               />
 
+              {otpRequired && (
+                <TextField
+                  fullWidth
+                  label="Enter OTP"
+                  value={otpValue}
+                  onChange={(e) => setOtpValue(e.target.value)}
+                  sx={{ mt: 2 }}
+                  placeholder="Enter the 6-digit OTP"
+                />
+              )}
+
               {triageResult && (
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="h6" gutterBottom>
@@ -285,9 +390,29 @@ function AlertsQueue() {
                           <strong>Reasons:</strong> {triageResult.reasons.join(', ')}
                         </Typography>
                       )}
-                      {triageResult.requiresOTP && (
+                      {triageResult.requiresOTP && !otpValue && (
                         <Alert severity="warning" sx={{ mt: 1 }}>
                           OTP verification required for this action
+                        </Alert>
+                      )}
+                      {triageResult.fallbackUsed && (
+                        <Alert severity="info" sx={{ mt: 1 }}>
+                          Using fallback risk assessment due to service unavailability
+                        </Alert>
+                      )}
+                      {triageResult.status === 'FROZEN' && (
+                        <Alert severity="success" sx={{ mt: 1 }}>
+                          Card frozen successfully
+                        </Alert>
+                      )}
+                      {triageResult.caseId && (
+                        <Alert severity="success" sx={{ mt: 1 }}>
+                          Dispute case {triageResult.caseId} opened successfully
+                        </Alert>
+                      )}
+                      {kbCitation && (
+                        <Alert severity="info" sx={{ mt: 1 }}>
+                          See also: <Link href={`#${kbCitation.anchor}`}>{kbCitation.title}</Link>
                         </Alert>
                       )}
                     </Box>
@@ -301,12 +426,13 @@ function AlertsQueue() {
           <Button onClick={closeTriageDialog}>
             {triageResult ? 'Close' : 'Cancel'}
           </Button>
-          {!triageResult && (
+          {(!triageResult || (triageResult.requiresOTP && !triageResult.status)) && (
             <Button 
               variant="contained" 
               onClick={executeTriage}
+              disabled={actionDisabled || (otpRequired && !otpValue)}
             >
-              Execute Triage
+              {otpRequired ? 'Submit OTP' : 'Execute Triage'}
             </Button>
           )}
         </DialogActions>

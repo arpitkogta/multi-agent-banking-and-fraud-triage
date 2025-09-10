@@ -13,7 +13,7 @@ The Multi-Agent Banking and Fraud Triage System is a comprehensive solution desi
    - Specialized workflow handlers
    - RESTful API endpoints
    - Database integration (PostgreSQL)
-   - Caching layer (Redis)
+   - Metrics and monitoring
 
 2. **Frontend (React)**
    - Modern web interface
@@ -26,9 +26,9 @@ The Multi-Agent Banking and Fraud Triage System is a comprehensive solution desi
    - Transaction history
    - Audit trails
 
-4. **Cache (Redis)**
-   - Session management
-   - Rate limiting
+4. **Monitoring & Metrics**
+   - Prometheus metrics collection
+   - Health checks and monitoring
    - Performance optimization
 
 ## 🤖 Agent Architecture
@@ -282,9 +282,6 @@ spring:
     url: jdbc:postgresql://localhost:5432/aegis_support
     username: aegis_user
     password: aegis_password
-  redis:
-    host: localhost
-    port: 6379
 
 aegis:
   security:
@@ -315,7 +312,6 @@ services:
       - "8080:8080"
     depends_on:
       - postgres
-      - redis
   
   frontend:
     build: ./frontend
@@ -330,11 +326,6 @@ services:
       POSTGRES_DB: aegis_support
       POSTGRES_USER: aegis_user
       POSTGRES_PASSWORD: aegis_password
-  
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
 ```
 
 ### Running the System
@@ -354,7 +345,6 @@ docker-compose logs -f backend
 ### Health Endpoints
 - **Health Check**: `GET /api/actuator/health`
 - **Metrics**: `GET /api/actuator/metrics`
-- **Prometheus**: `http://localhost:9090`
 
 ### Key Metrics
 - Request latency
@@ -382,6 +372,30 @@ docker-compose logs -f backend
 - SQL injection prevention
 - XSS protection
 - CSRF protection
+
+## 🧹 Code Quality & Optimization
+
+### Recent Cleanup (Latest Update)
+The system has been optimized for production readiness with the following improvements:
+
+#### **Removed Unused Components**
+- **TestController**: Test-only controller removed
+- **PII Redaction Classes**: Unused PiiRequestAdvice, PiiResponseAdvice, PiiFilter removed
+- **Unused Configurations**: RedisConfig, RestTemplateConfig, SecurityConfig removed
+- **Unused Dependencies**: Redis, WebFlux, Security, Validation, Actuator dependencies removed
+- **Unused Annotations**: @EnableCaching, @EnableAsync, @EnableScheduling removed
+
+#### **Code Quality Improvements**
+- **Eliminated Dead Code**: Removed unused methods and classes
+- **Reduced Dependencies**: Streamlined build.gradle to only essential dependencies
+- **Cleaner Architecture**: Removed unused configuration classes
+- **Optimized Imports**: Cleaned up unused frontend imports
+
+#### **Performance Benefits**
+- **Faster Build Times**: Reduced dependency resolution time
+- **Smaller JAR Size**: Eliminated unused libraries
+- **Cleaner Codebase**: Easier maintenance and debugging
+- **Reduced Complexity**: Simplified configuration management
 
 ## 🎯 Key Features
 
