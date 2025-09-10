@@ -104,7 +104,7 @@ node scripts/run-evals.js
 
 ## Architecture Overview
 
-- **Frontend**: React + TypeScript dashboard with real-time triage workflow
+- **Frontend**: React + JavaScript dashboard with real-time triage workflow
 - **Backend**: Spring Boot microservices with multi-agent fraud detection
 - **Database**: PostgreSQL with optimized schema and indexing
 - **Agents**: Orchestrated AI agents for fraud analysis, compliance, and insights
@@ -342,15 +342,3 @@ The evaluation measures:
 - [ADR Decisions](docs/ADR.md)
 - [Current State](docs/CURRENT_STATE.md)
 
-## Recent Updates
-
-### Code Optimization (Latest)
-The system has been optimized for production readiness with comprehensive code cleanup:
-
-- **Removed 8 unused classes** including TestController, PII redaction classes, and unused configurations
-- **Eliminated 7 major dependencies** including Redis, WebFlux, Security, and unused monitoring libraries
-- **Cleaned up frontend imports** and removed unused Material-UI components
-- **Streamlined build configuration** for faster compilation and smaller JAR size
-- **Maintained 100% test success rate** while reducing codebase complexity
-
-The optimization changes include streamlined dependencies, clean architecture, and improved build performance.
